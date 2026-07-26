@@ -1,0 +1,305 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#070a10" />
+  <meta name="description" content="고정 60Hz 시뮬레이션 기반의 고성능 스태커 훈련 도구" />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <title>STACK//LAB — High Fidelity Stacker Trainer</title>
+</head>
+<body>
+  <div class="ambient" aria-hidden="true">
+    <div class="ambient-grid"></div>
+    <div class="ambient-glow glow-a"></div>
+    <div class="ambient-glow glow-b"></div>
+    <div class="noise"></div>
+  </div>
+
+  <div id="uiRoot" class="ui-root" data-ui-scale="1.000">
+  <div id="app" class="app" data-state="idle">
+    <header class="topbar">
+      <button id="brandButton" class="brand" type="button" aria-label="홈">
+        <span class="brand-mark">S</span>
+        <span class="brand-copy"><b>STACK<span>//</span>LAB</b><small>HIGH FIDELITY TRAINER</small></span>
+      </button>
+
+      <nav class="mode-tabs" aria-label="연습 모드">
+        <button class="mode-tab is-active" type="button" data-mode="sprint">40 LINES</button>
+        <button class="mode-tab" type="button" data-mode="zen">ZEN</button>
+        <button class="mode-tab" type="button" data-mode="custom">CUSTOM</button>
+      </nav>
+
+      <div class="top-actions">
+        <div id="performanceBadge" class="perf-badge" title="렌더링 FPS / 고정 시뮬레이션 주파수">
+          <span id="fpsValue">60</span><small>FPS</small><i></i><span>60</span><small>TPS</small>
+        </div>
+        <button id="audioButton" class="icon-button" type="button" title="소리 켜기/끄기" aria-label="소리 켜기/끄기">◖</button>
+        <button id="fullscreenButton" class="icon-button" type="button" title="전체 화면" aria-label="전체 화면">⛶</button>
+        <button id="configButton" class="config-button" type="button"><span>CONFIG</span><kbd>F10</kbd></button>
+      </div>
+    </header>
+
+    <main class="game-layout">
+      <aside class="side side-left">
+        <section class="piece-panel hold-panel">
+          <header><span>HOLD</span><small id="holdState">READY</small></header>
+          <canvas id="holdCanvas" width="160" height="116" aria-label="홀드 조각"></canvas>
+        </section>
+
+        <section class="stat-stack pro-only">
+          <div class="big-stat"><span>INPUTS</span><strong id="inputsValue">0</strong></div>
+          <div class="small-stat-row"><span>KPP</span><b id="kppValue">0.00</b></div>
+          <div class="small-stat-row"><span>KEYS / SEC</span><b id="kpsValue">0.00</b></div>
+        </section>
+
+        <section class="run-card">
+          <header><span>RUN</span><small id="seedValue">—</small></header>
+          <div class="run-row"><span>PIECES</span><b id="piecesValue">0</b></div>
+          <div class="run-row"><span>LINES</span><b id="linesValue">0</b></div>
+          <div class="run-row"><span>SCORE</span><b id="scoreValue">0</b></div>
+          <div class="run-row"><span>COMBO</span><b id="comboValue">—</b></div>
+          <div class="run-row"><span>B2B</span><b id="b2bValue">—</b></div>
+        </section>
+      </aside>
+
+      <section class="board-column">
+        <div class="objective-row">
+          <div><span id="objectiveLabel">LINES LEFT</span><strong id="objectiveValue">40</strong></div>
+          <button id="pauseButton" type="button" title="일시정지"><span>Ⅱ</span></button>
+        </div>
+
+        <div id="boardRig" class="board-rig">
+          <div id="dangerGlow" class="danger-glow"></div>
+          <canvas id="boardCanvas" width="600" height="1200" aria-label="게임 보드"></canvas>
+          <canvas id="fxCanvas" width="600" height="1200" aria-hidden="true"></canvas>
+          <div id="actionText" class="action-text" aria-live="polite"></div>
+
+          <div id="startOverlay" class="board-overlay start-overlay">
+            <div class="mode-kicker" id="modeKicker">SOLO / 40 LINES</div>
+            <h1 id="modeTitle">40 LINES</h1>
+            <p id="modeDescription">40줄을 가능한 한 빠르게 제거하세요.</p>
+            <div class="pb-line"><span>PERSONAL BEST</span><b id="pbValue">—</b></div>
+            <button id="startButton" class="primary-button" type="button"><span>START</span><kbd>SPACE</kbd></button>
+            <div class="start-options">
+              <label><input id="proModeToggle" type="checkbox" checked /><i></i><span>PRO MODE</span></label>
+              <label><input id="finesseAlertToggle" type="checkbox" checked /><i></i><span>FINESSE ALERT</span></label>
+              <label><input id="finesseRetryToggle" type="checkbox" /><i></i><span>RETRY ON FAULT</span></label>
+              <label><input id="strideModeToggle" type="checkbox" /><i></i><span>STRIDE MODE</span></label>
+            </div>
+          </div>
+
+          <div id="countdownOverlay" class="board-overlay countdown-overlay is-hidden">
+            <div id="countdownSub">GET READY</div>
+            <strong id="countdownValue">3</strong>
+          </div>
+
+          <div id="pauseOverlay" class="board-overlay pause-overlay is-hidden">
+            <div class="mode-kicker">GAME PAUSED</div>
+            <h2>PAUSED</h2>
+            <p>ESC 또는 아래 버튼으로 계속합니다.</p>
+            <button id="resumeButton" class="primary-button" type="button">RESUME</button>
+            <button id="pauseRestartButton" class="text-button" type="button">RESTART RUN</button>
+          </div>
+
+          <div id="resultOverlay" class="board-overlay result-overlay is-hidden">
+            <div id="resultKicker" class="mode-kicker">RUN COMPLETE</div>
+            <h2 id="resultTime">00:00.000</h2>
+            <div id="resultBadge" class="result-badge">COMPLETE</div>
+            <div class="result-grid">
+              <div><span>PPS</span><b id="resultPps">0.00</b></div>
+              <div><span>KPP</span><b id="resultKpp">0.00</b></div>
+              <div><span>FINESSE</span><b id="resultFinesse">0</b></div>
+              <div><span>PIECES</span><b id="resultPieces">0</b></div>
+            </div>
+            <button id="retryButton" class="primary-button" type="button"><span>RETRY</span><kbd>R</kbd></button>
+            <div class="result-actions">
+              <button id="resultSameSeedButton" type="button">SAME SEED</button>
+              <button id="exportReplayButton" type="button">EXPORT REPLAY</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="handling-strip" aria-label="현재 핸들링">
+          <div><span>ARR</span><b id="arrHud">2.0F</b></div>
+          <div><span>DAS</span><b id="dasHud">12.0F</b></div>
+          <div><span>DCD</span><b id="dcdHud">0.0F</b></div>
+          <div><span>SDF</span><b id="sdfHud">6×</b></div>
+          <button id="handlingEditButton" type="button">EDIT</button>
+        </div>
+      </section>
+
+      <aside class="side side-right">
+        <section class="piece-panel next-panel">
+          <header><span>NEXT</span><small>5</small></header>
+          <div class="next-list">
+            <canvas class="next-canvas is-first" width="160" height="104"></canvas>
+            <canvas class="next-canvas" width="160" height="82"></canvas>
+            <canvas class="next-canvas" width="160" height="82"></canvas>
+            <canvas class="next-canvas" width="160" height="82"></canvas>
+            <canvas class="next-canvas" width="160" height="82"></canvas>
+          </div>
+        </section>
+
+        <section class="stat-stack pro-only finesse-stack">
+          <div class="big-stat"><span>FINESSE</span><strong id="finesseValue">0</strong></div>
+          <div class="small-stat-row"><span>PPS</span><b id="ppsValue">0.00</b></div>
+          <div class="small-stat-row"><span>APP</span><b id="appValue">0.00</b></div>
+        </section>
+
+        <section class="key-hints">
+          <header><span>CONTROLS</span><small>LIVE</small></header>
+          <div><kbd id="hintLeft">←</kbd><span>MOVE</span><kbd id="hintRight">→</kbd></div>
+          <div><kbd id="hintCcw">Z</kbd><span>ROTATE</span><kbd id="hintCw">↑</kbd></div>
+          <div><kbd id="hintHold">C</kbd><span>HOLD</span><kbd id="hintHard">SPACE</kbd></div>
+          <div><kbd id="hintRestart">R</kbd><span>RETRY</span><kbd id="hintPause">ESC</kbd></div>
+        </section>
+      </aside>
+    </main>
+
+    <footer class="footerbar">
+      <div><span class="status-dot"></span><b id="statusText">READY</b><small id="latencyText">INPUT QUEUE 0.0 ms</small></div>
+      <p>독립 제작 연습 도구 · 원본 로고, 음원, 그래픽 자산을 사용하지 않습니다.</p>
+      <div class="footer-actions"><button id="sameSeedRestartButton" type="button">SAME SEED</button><button id="footerRestartButton" type="button">RESTART <kbd>R</kbd></button></div>
+    </footer>
+  </div>
+
+  <div id="settingsBackdrop" class="settings-backdrop is-hidden"></div>
+  <aside id="settingsPanel" class="settings-panel is-hidden" aria-label="설정" aria-modal="true" role="dialog">
+    <header class="settings-header">
+      <div><span>STACK//LAB</span><h2>CONFIG</h2></div>
+      <button id="closeSettingsButton" class="icon-button" type="button" aria-label="설정 닫기">×</button>
+    </header>
+
+    <nav class="settings-tabs" aria-label="설정 분류">
+      <button class="settings-tab is-active" type="button" data-tab="handling">HANDLING</button>
+      <button class="settings-tab" type="button" data-tab="controls">CONTROLS</button>
+      <button class="settings-tab" type="button" data-tab="gameplay">GAMEPLAY</button>
+      <button class="settings-tab" type="button" data-tab="visual">VISUAL</button>
+      <button class="settings-tab" type="button" data-tab="data">DATA</button>
+    </nav>
+
+    <div class="settings-scroll">
+      <section class="settings-section is-active" data-section="handling">
+        <div class="section-heading"><div><span>INPUT RESPONSE</span><h3>HANDLING</h3></div><button id="resetHandlingButton" type="button">RESET</button></div>
+        <p class="section-note">값의 단위는 60Hz 시뮬레이션 프레임입니다. 소수 프레임도 누적기로 처리합니다.</p>
+
+        <div class="range-setting">
+          <div><label for="arrRange">ARR</label><p>DAS가 충전된 뒤 한 칸 반복 이동하는 간격. 0F는 즉시 벽 이동.</p></div>
+          <output id="arrOutput" for="arrRange">2.0F</output>
+          <input id="arrRange" type="range" min="0" max="10" step="0.1" />
+          <input id="arrNumber" class="number-input" type="number" min="0" max="20" step="0.1" />
+        </div>
+        <div class="range-setting">
+          <div><label for="dasRange">DAS</label><p>첫 횡이동 이후 자동 반복이 시작되기까지의 유지 시간.</p></div>
+          <output id="dasOutput" for="dasRange">12.0F</output>
+          <input id="dasRange" type="range" min="1" max="30" step="0.1" />
+          <input id="dasNumber" class="number-input" type="number" min="1" max="60" step="0.1" />
+        </div>
+        <div class="range-setting">
+          <div><label for="dcdRange">DCD</label><p>하드드롭·회전 뒤 보존된 DAS 자동 이동을 일시 정지하는 시간.</p></div>
+          <output id="dcdOutput" for="dcdRange">0.0F</output>
+          <input id="dcdRange" type="range" min="0" max="20" step="0.1" />
+          <input id="dcdNumber" class="number-input" type="number" min="0" max="60" step="0.1" />
+        </div>
+        <div class="range-setting sdf-setting">
+          <div><label for="sdfRange">SDF</label><p>소프트드롭 배율. MAX는 바닥까지 즉시 내리되 잠그지 않음.</p></div>
+          <output id="sdfOutput" for="sdfRange">6×</output>
+          <input id="sdfRange" type="range" min="1" max="41" step="1" />
+          <button id="sdfMaxButton" class="mini-button" type="button">MAX</button>
+        </div>
+
+        <div class="toggle-grid">
+          <label class="toggle-card"><input id="hardDropSafetyToggle" type="checkbox" /><i></i><span><b>PREVENT ACCIDENTAL HARD DROPS</b><small>키를 놓기 전 다음 조각의 연속 하드드롭 방지</small></span></label>
+          <label class="toggle-card"><input id="cancelDasToggle" type="checkbox" /><i></i><span><b>CANCEL DAS ON DIRECTION CHANGE</b><small>반대 방향 입력 시 이전 방향의 충전을 초기화</small></span></label>
+          <label class="toggle-card"><input id="softDropPriorityToggle" type="checkbox" /><i></i><span><b>PREFER SOFT DROP OVER MOVEMENT</b><small>동일 틱에서 낙하를 횡이동보다 먼저 처리</small></span></label>
+        </div>
+
+        <div class="select-row">
+          <div><label for="irsSelect">ROTATION BUFFERING (IRS)</label><p>조각 출현 전에 입력한 회전 처리 방식</p></div>
+          <select id="irsSelect"><option value="off">OFF</option><option value="hold">HOLD</option><option value="tap">TAP</option></select>
+        </div>
+        <div class="select-row">
+          <div><label for="ihsSelect">HOLD BUFFERING (IHS)</label><p>조각 출현 전에 입력한 홀드 처리 방식</p></div>
+          <select id="ihsSelect"><option value="off">OFF</option><option value="hold">HOLD</option><option value="tap">TAP</option></select>
+        </div>
+        <button id="handlingTestButton" class="wide-button" type="button">APPLY & START HANDLING TEST</button>
+      </section>
+
+      <section class="settings-section" data-section="controls">
+        <div class="section-heading"><div><span>KEYBOARD / GAMEPAD</span><h3>CONTROLS</h3></div><button id="resetControlsButton" type="button">RESET</button></div>
+        <div class="preset-row"><button id="guidelinePresetButton" class="is-active" type="button">GUIDELINE</button><button id="wasdPresetButton" type="button">WASD</button></div>
+        <p class="section-note">슬롯을 누른 뒤 키 또는 게임패드 버튼을 입력하세요. Backspace/Delete로 비울 수 있습니다.</p>
+        <div id="bindingsList" class="bindings-list"></div>
+        <div class="range-setting compact-range">
+          <div><label for="gamepadSensitivityRange">CONTROLLER SENSITIVITY</label><p>아날로그 스틱을 방향 입력으로 판정하는 임계값.</p></div>
+          <output id="gamepadSensitivityOutput">55%</output>
+          <input id="gamepadSensitivityRange" type="range" min="20" max="95" step="1" />
+        </div>
+      </section>
+
+      <section class="settings-section" data-section="gameplay">
+        <div class="section-heading"><div><span>RULESET</span><h3>GAMEPLAY</h3></div><button id="resetGameplayButton" type="button">RESET</button></div>
+        <div class="select-row"><div><label for="randomizerSelect">RANDOMIZER</label><p>재현 가능한 시드 기반 조각 생성기</p></div><select id="randomizerSelect"><option value="calm">CALM 7-BAG</option><option value="bag7">7-BAG</option><option value="bag14">14-BAG</option></select></div>
+        <div class="select-row"><div><label for="rotationSelect">ROTATION SYSTEM</label><p>기본은 대칭 I 킥과 180 킥을 포함한 SRS+</p></div><select id="rotationSelect"><option value="srsplus">SRS+</option><option value="srs">SRS</option></select></div>
+        <div class="range-setting"><div><label for="gravityRange">GRAVITY</label><p>한 시뮬레이션 프레임당 낙하 칸 수(G).</p></div><output id="gravityOutput">0.020G</output><input id="gravityRange" type="range" min="0" max="2" step="0.001" /><input id="gravityNumber" class="number-input" type="number" min="0" max="20" step="0.001" /></div>
+        <div class="range-setting"><div><label for="lockDelayRange">LOCK DELAY</label><p>바닥 접촉 후 자동 고정까지의 시간.</p></div><output id="lockDelayOutput">30F</output><input id="lockDelayRange" type="range" min="1" max="120" step="1" /><input id="lockDelayNumber" class="number-input" type="number" min="1" max="600" step="1" /></div>
+        <div class="range-setting"><div><label for="lockResetRange">LOCK RESETS</label><p>바닥에서 이동·회전으로 락 타이머를 초기화할 수 있는 횟수.</p></div><output id="lockResetOutput">15</output><input id="lockResetRange" type="range" min="0" max="30" step="1" /><input id="lockResetNumber" class="number-input" type="number" min="0" max="99" step="1" /></div>
+        <div class="range-setting"><div><label for="areRange">ARE</label><p>일반 고정 뒤 다음 조각까지의 지연.</p></div><output id="areOutput">0F</output><input id="areRange" type="range" min="0" max="60" step="1" /><input id="areNumber" class="number-input" type="number" min="0" max="600" step="1" /></div>
+        <div class="range-setting"><div><label for="lineAreRange">LINE CLEAR ARE</label><p>줄 제거 뒤 다음 조각까지의 지연.</p></div><output id="lineAreOutput">0F</output><input id="lineAreRange" type="range" min="0" max="60" step="1" /><input id="lineAreNumber" class="number-input" type="number" min="0" max="600" step="1" /></div>
+        <div class="range-setting"><div><label for="customLinesRange">CUSTOM TARGET</label><p>CUSTOM 모드에서 종료할 목표 줄 수. 0은 무한.</p></div><output id="customLinesOutput">100</output><input id="customLinesRange" type="range" min="0" max="300" step="10" /><input id="customLinesNumber" class="number-input" type="number" min="0" max="9999" step="1" /></div>
+        <div class="toggle-grid">
+          <label class="toggle-card"><input id="ghostToggle" type="checkbox" /><i></i><span><b>GHOST PIECE</b><small>착지 위치를 미리 표시</small></span></label>
+          <label class="toggle-card"><input id="holdEnabledToggle" type="checkbox" /><i></i><span><b>ENABLE HOLD</b><small>한 조각당 한 번 홀드 허용</small></span></label>
+          <label class="toggle-card"><input id="allow180Toggle" type="checkbox" /><i></i><span><b>ALLOW 180°</b><small>전용 180도 회전 키 활성화</small></span></label>
+        </div>
+      </section>
+
+      <section class="settings-section" data-section="visual">
+        <div class="section-heading"><div><span>RENDERING</span><h3>VISUAL & AUDIO</h3></div><button id="resetVisualButton" type="button">RESET</button></div>
+        <div class="select-row"><div><label for="uiScaleSelect">INTERFACE SCALE</label><p>데스크톱 해상도에 맞춰 전체 UI를 자동 확대하거나 고정 배율을 사용합니다.</p></div><select id="uiScaleSelect"><option value="auto">AUTO</option><option value="100">100%</option><option value="125">125%</option><option value="150">150%</option><option value="175">175%</option><option value="200">200%</option></select></div>
+        <div class="range-setting"><div><label for="boardZoomRange">BOARD ZOOM</label><p>화면 내 보드 표시 크기.</p></div><output id="boardZoomOutput">100%</output><input id="boardZoomRange" type="range" min="75" max="120" step="1" /><input id="boardZoomNumber" class="number-input" type="number" min="60" max="140" step="1" /></div>
+        <div class="range-setting"><div><label for="gridOpacityRange">GRID VISIBILITY</label><p>플레이필드 격자 투명도.</p></div><output id="gridOpacityOutput">22%</output><input id="gridOpacityRange" type="range" min="0" max="100" step="1" /><input id="gridOpacityNumber" class="number-input" type="number" min="0" max="100" step="1" /></div>
+        <div class="range-setting"><div><label for="ghostOpacityRange">SHADOW VISIBILITY</label><p>고스트 조각 투명도.</p></div><output id="ghostOpacityOutput">28%</output><input id="ghostOpacityRange" type="range" min="0" max="100" step="1" /><input id="ghostOpacityNumber" class="number-input" type="number" min="0" max="100" step="1" /></div>
+        <div class="range-setting"><div><label for="bounceRange">BOARD BOUNCINESS</label><p>고정·줄 제거 시 보드 반동 강도.</p></div><output id="bounceOutput">55%</output><input id="bounceRange" type="range" min="0" max="100" step="1" /><input id="bounceNumber" class="number-input" type="number" min="0" max="100" step="1" /></div>
+        <div class="range-setting"><div><label for="particlesRange">PARTICLE COUNT</label><p>줄 제거·하드드롭 시 시각 효과 밀도.</p></div><output id="particlesOutput">65%</output><input id="particlesRange" type="range" min="0" max="100" step="1" /><input id="particlesNumber" class="number-input" type="number" min="0" max="100" step="1" /></div>
+        <div class="range-setting"><div><label for="volumeRange">SFX VOLUME</label><p>브라우저에서 합성되는 독립 효과음 볼륨.</p></div><output id="volumeOutput">55%</output><input id="volumeRange" type="range" min="0" max="100" step="1" /><input id="volumeNumber" class="number-input" type="number" min="0" max="100" step="1" /></div>
+        <div class="toggle-grid">
+          <label class="toggle-card"><input id="coloredGhostToggle" type="checkbox" /><i></i><span><b>COLORED SHADOW</b><small>고스트에 조각 색상 적용</small></span></label>
+          <label class="toggle-card"><input id="hardDropTrailToggle" type="checkbox" /><i></i><span><b>HARD DROP TRAIL</b><small>하드드롭 경로를 짧게 표시</small></span></label>
+          <label class="toggle-card"><input id="reducedMotionToggle" type="checkbox" /><i></i><span><b>REDUCED MOTION</b><small>반동과 파티클 애니메이션 최소화</small></span></label>
+        </div>
+      </section>
+
+      <section class="settings-section" data-section="data">
+        <div class="section-heading"><div><span>LOCAL STORAGE</span><h3>DATA</h3></div></div>
+        <div class="data-card"><div><b>EXPORT SETTINGS</b><p>핸들링, 키 설정, 게임플레이 및 시각 설정을 JSON으로 저장합니다.</p></div><button id="exportSettingsButton" type="button">EXPORT</button></div>
+        <div class="data-card"><div><b>IMPORT SETTINGS</b><p>이 앱에서 내보낸 설정 파일을 불러옵니다.</p></div><button id="importSettingsButton" type="button">IMPORT</button><input id="importSettingsInput" type="file" accept="application/json,.json" hidden /></div>
+        <div class="data-card"><div><b>IMPORT REPLAY</b><p>프레임 단위 입력과 시드가 기록된 STACK//LAB 리플레이를 재생합니다.</p></div><button id="importReplayButton" type="button">IMPORT</button><input id="importReplayInput" type="file" accept="application/json,.json" hidden /></div>
+        <div class="data-card danger-card"><div><b>RESET ALL LOCAL DATA</b><p>설정과 개인 기록을 모두 기본값으로 되돌립니다.</p></div><button id="resetAllDataButton" type="button">RESET ALL</button></div>
+        <div class="about-card">
+          <b>IMPLEMENTATION NOTES</b>
+          <p>10×40 플레이필드, 5 NEXT, 홀드, 시드 기반 7-bag, 고정 60Hz 시뮬레이션, SRS/SRS+ 90° 킥과 180° 킥, DAS/ARR/DCD/SDF, IRS/IHS, 락 딜레이 및 리셋 제한을 독립 구현했습니다.</p>
+          <p>이는 비공식 독립 연습 도구이며 원본 클라이언트 코드·서버·음원·로고·그래픽 자산을 포함하지 않습니다.</p>
+          <span id="buildLabel">BUILD 1.0.0</span>
+        </div>
+      </section>
+    </div>
+
+    <footer class="settings-footer">
+      <span id="settingsSaveState">SETTINGS SAVED LOCALLY</span>
+      <button id="doneSettingsButton" type="button">DONE</button>
+    </footer>
+  </aside>
+
+  <div id="bindingCapture" class="binding-capture is-hidden" role="dialog" aria-modal="true">
+    <div><span>PRESS A KEY OR GAMEPAD BUTTON</span><strong id="bindingCaptureLabel">MOVE LEFT · SLOT 1</strong><p>Backspace/Delete: 비우기 · Esc: 취소</p></div>
+  </div>
+
+  <div id="toastHost" class="toast-host" aria-live="polite"></div>
+  <input id="hiddenFileInput" type="file" hidden />
+  </div>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

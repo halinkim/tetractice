@@ -1,0 +1,2910 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+  <meta name="theme-color" content="#070a10" />
+  <title>STACK//LAB — High Fidelity Stacker Trainer</title>
+  <style>
+:root {
+  color-scheme: dark;
+  --bg: #06080d;
+  --panel: rgba(10, 14, 22, 0.86);
+  --panel-2: rgba(14, 19, 30, 0.9);
+  --line: rgba(196, 217, 255, 0.14);
+  --line-strong: rgba(196, 217, 255, 0.28);
+  --text: #eef3ff;
+  --muted: #8d98ad;
+  --dim: #5b6476;
+  --accent: #63e6ff;
+  --accent-2: #9278ff;
+  --danger: #ff4f67;
+  --good: #5ff2ad;
+  --board-scale: 1;
+  --ease: cubic-bezier(.2,.8,.2,1);
+  --font-ui: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+}
+
+* { box-sizing: border-box; }
+html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: var(--bg); color: var(--text); font-family: var(--font-ui); }
+button, input, select { font: inherit; }
+button { color: inherit; }
+button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.is-hidden { display: none !important; }
+
+.ambient { position: fixed; inset: 0; overflow: hidden; background: radial-gradient(circle at 50% 40%, #111728 0, #070a11 42%, #030509 100%); pointer-events: none; }
+.ambient-grid { position: absolute; inset: -20%; opacity: .32; transform: perspective(1000px) rotateX(67deg) translateY(18%); transform-origin: center bottom; background-image: linear-gradient(rgba(124,150,210,.09) 1px, transparent 1px), linear-gradient(90deg, rgba(124,150,210,.09) 1px, transparent 1px); background-size: 48px 48px; mask-image: linear-gradient(to bottom, transparent 5%, #000 55%, transparent 95%); animation: gridDrift 18s linear infinite; }
+.ambient-glow { position: absolute; width: 58vw; height: 58vw; border-radius: 50%; filter: blur(90px); opacity: .12; }
+.glow-a { left: -22vw; top: -25vw; background: #356dff; animation: glowFloat 15s ease-in-out infinite alternate; }
+.glow-b { right: -25vw; bottom: -30vw; background: #8c3dff; animation: glowFloat 19s ease-in-out infinite alternate-reverse; }
+.noise { position: absolute; inset: 0; opacity: .025; background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 140 140' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.8'/%3E%3C/svg%3E"); }
+@keyframes gridDrift { to { background-position: 0 48px, 48px 0; } }
+@keyframes glowFloat { to { transform: translate3d(10vw, 6vh, 0) scale(1.15); } }
+
+.app { position: relative; z-index: 1; width: 100%; height: 100%; display: grid; grid-template-rows: 68px minmax(0,1fr) 42px; }
+.topbar { min-width: 0; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; padding: 0 24px; border-bottom: 1px solid var(--line); background: linear-gradient(180deg, rgba(11,15,24,.95), rgba(7,10,17,.76)); backdrop-filter: blur(18px); box-shadow: 0 8px 36px rgba(0,0,0,.24); }
+.brand { appearance: none; border: 0; background: none; display: inline-flex; align-items: center; gap: 12px; padding: 0; cursor: pointer; width: max-content; }
+.brand-mark { width: 36px; height: 36px; display: grid; place-items: center; border: 1px solid rgba(99,230,255,.5); background: linear-gradient(135deg, rgba(99,230,255,.16), rgba(146,120,255,.12)); clip-path: polygon(23% 0,100% 0,100% 77%,77% 100%,0 100%,0 23%); color: var(--accent); font: 900 20px/1 var(--font-mono); text-shadow: 0 0 18px rgba(99,230,255,.7); }
+.brand-copy { display: flex; flex-direction: column; align-items: flex-start; letter-spacing: .04em; }
+.brand-copy b { font: 800 15px/1 var(--font-mono); }
+.brand-copy b span { color: var(--accent); }
+.brand-copy small { color: var(--muted); margin-top: 5px; font: 600 8px/1 var(--font-mono); letter-spacing: .18em; }
+.mode-tabs { align-self: stretch; display: flex; align-items: center; gap: 2px; }
+.mode-tab { height: 100%; min-width: 105px; border: 0; border-bottom: 2px solid transparent; background: transparent; color: #717b8f; font: 800 11px/1 var(--font-mono); letter-spacing: .13em; cursor: pointer; transition: color .18s, background .18s, border-color .18s; }
+.mode-tab:hover { color: #cbd5e9; background: rgba(255,255,255,.025); }
+.mode-tab.is-active { color: #fff; border-bottom-color: var(--accent); background: linear-gradient(180deg, transparent, rgba(99,230,255,.07)); text-shadow: 0 0 18px rgba(99,230,255,.4); }
+.top-actions { justify-self: end; display: flex; align-items: center; gap: 8px; }
+.perf-badge { height: 30px; display: flex; align-items: baseline; gap: 4px; padding: 0 10px; border: 1px solid var(--line); background: rgba(0,0,0,.22); font: 700 10px/1 var(--font-mono); color: #c9d3e8; }
+.perf-badge small { font-size: 7px; color: var(--dim); }
+.perf-badge i { display: block; width: 1px; height: 12px; margin: 0 4px; background: var(--line-strong); }
+.icon-button, .config-button { border: 1px solid var(--line); background: rgba(255,255,255,.025); cursor: pointer; transition: .16s var(--ease); }
+.icon-button:hover, .config-button:hover { border-color: var(--line-strong); background: rgba(255,255,255,.065); transform: translateY(-1px); }
+.icon-button { width: 34px; height: 34px; display: grid; place-items: center; font-size: 17px; }
+.config-button { height: 34px; display: flex; align-items: center; gap: 10px; padding: 0 12px; font: 800 10px/1 var(--font-mono); letter-spacing: .11em; }
+kbd { border: 1px solid rgba(255,255,255,.16); border-bottom-color: rgba(255,255,255,.25); border-radius: 2px; background: rgba(0,0,0,.28); color: #aeb8cc; padding: 3px 5px; font: 700 8px/1 var(--font-mono); box-shadow: inset 0 -1px rgba(255,255,255,.04); }
+
+.game-layout { min-height: 0; display: grid; grid-template-columns: minmax(150px, 210px) auto minmax(150px, 210px); justify-content: center; align-items: center; gap: clamp(18px, 3.2vw, 48px); padding: 14px 28px 10px; }
+.side { width: 100%; max-width: 200px; height: min(700px, calc(100vh - 140px)); display: flex; flex-direction: column; gap: 14px; }
+.side-left { align-items: stretch; justify-content: center; }
+.side-right { align-items: stretch; justify-content: center; }
+.piece-panel, .run-card, .stat-stack, .key-hints { border: 1px solid var(--line); background: linear-gradient(145deg, rgba(17,23,36,.75), rgba(7,10,17,.72)); box-shadow: inset 0 1px rgba(255,255,255,.025), 0 16px 50px rgba(0,0,0,.15); backdrop-filter: blur(12px); }
+.piece-panel header, .run-card header, .key-hints header { height: 32px; padding: 0 11px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--line); font: 800 9px/1 var(--font-mono); letter-spacing: .16em; color: #d8e0f0; }
+.piece-panel header small, .run-card header small, .key-hints header small { color: var(--dim); font-size: 7px; }
+.hold-panel canvas { width: 100%; height: 104px; display: block; }
+.next-panel { flex: 0 0 auto; }
+.next-list { padding: 0 8px 6px; }
+.next-canvas { width: 100%; height: 62px; display: block; border-top: 1px solid rgba(255,255,255,.04); }
+.next-canvas:first-child { border-top: 0; height: 82px; }
+.stat-stack { padding: 11px 12px 10px; }
+.big-stat { display: flex; align-items: flex-end; justify-content: space-between; padding-bottom: 9px; margin-bottom: 7px; border-bottom: 1px solid var(--line); }
+.big-stat span { color: var(--muted); font: 800 8px/1 var(--font-mono); letter-spacing: .14em; }
+.big-stat strong { font: 800 28px/.85 var(--font-mono); letter-spacing: -.06em; }
+.small-stat-row, .run-row { display: flex; align-items: center; justify-content: space-between; min-height: 25px; font: 700 9px/1 var(--font-mono); }
+.small-stat-row span, .run-row span { color: var(--muted); font-size: 7px; letter-spacing: .1em; }
+.small-stat-row b, .run-row b { color: #e4eaf6; }
+.run-card { padding-bottom: 6px; }
+.run-row { padding: 0 11px; }
+.key-hints { padding-bottom: 7px; }
+.key-hints > div { display: grid; grid-template-columns: minmax(36px,auto) 1fr minmax(36px,auto); align-items: center; gap: 6px; padding: 5px 10px 0; }
+.key-hints > div span { text-align: center; color: var(--dim); font: 700 7px/1 var(--font-mono); letter-spacing: .1em; }
+.key-hints kbd { text-align: center; overflow: hidden; text-overflow: ellipsis; }
+
+.board-column { display: flex; flex-direction: column; align-items: stretch; width: calc(300px * var(--board-scale)); max-height: 100%; transition: width .2s var(--ease); }
+.objective-row { height: 42px; display: flex; align-items: flex-end; justify-content: center; position: relative; padding-bottom: 7px; }
+.objective-row > div { display: flex; flex-direction: column; align-items: center; }
+.objective-row span { color: var(--muted); font: 800 7px/1 var(--font-mono); letter-spacing: .19em; }
+.objective-row strong { margin-top: 3px; font: 800 19px/1 var(--font-mono); }
+.objective-row > button { position: absolute; right: 0; bottom: 5px; width: 28px; height: 28px; border: 1px solid var(--line); background: rgba(255,255,255,.03); color: var(--muted); cursor: pointer; opacity: .72; }
+.objective-row > button:hover { opacity: 1; color: #fff; }
+.board-rig { position: relative; width: calc(300px * var(--board-scale)); height: calc(600px * var(--board-scale)); transform-origin: center bottom; transition: width .2s var(--ease), height .2s var(--ease), filter .18s; }
+.board-rig::before { content: ""; position: absolute; inset: -1px; z-index: 0; background: linear-gradient(145deg, rgba(99,230,255,.42), rgba(255,255,255,.09) 38%, rgba(146,120,255,.35)); clip-path: polygon(0 0,100% 0,100% calc(100% - 12px),calc(100% - 12px) 100%,0 100%); filter: drop-shadow(0 0 18px rgba(75,116,196,.18)); }
+.board-rig::after { content: ""; position: absolute; z-index: 1; inset: 1px; background: rgba(3,5,9,.94); clip-path: polygon(0 0,100% 0,100% calc(100% - 12px),calc(100% - 12px) 100%,0 100%); pointer-events: none; }
+#boardCanvas, #fxCanvas { position: absolute; z-index: 2; inset: 1px; width: calc(100% - 2px); height: calc(100% - 2px); image-rendering: auto; }
+#fxCanvas { z-index: 3; pointer-events: none; }
+.danger-glow { position: absolute; z-index: 0; inset: -9px; opacity: 0; border: 2px solid var(--danger); box-shadow: 0 0 36px rgba(255,79,103,.65), inset 0 0 28px rgba(255,79,103,.25); transition: opacity .25s; }
+.board-rig.is-danger .danger-glow { opacity: .9; animation: dangerPulse .8s ease-in-out infinite alternate; }
+@keyframes dangerPulse { to { opacity: .4; } }
+.board-rig.is-bouncing { animation: boardBounce 140ms var(--ease); }
+.board-rig.is-clearing { animation: boardClearBounce 180ms var(--ease); }
+@keyframes boardBounce { 0% { transform: translateY(0) scaleY(1); } 38% { transform: translateY(3px) scaleY(.993); } 100% { transform: translateY(0) scaleY(1); } }
+@keyframes boardClearBounce { 0% { transform: translateY(0); } 42% { transform: translateY(5px); } 100% { transform: translateY(0); } }
+.action-text { position: absolute; z-index: 6; left: calc(100% + 14px); top: 57%; width: 150px; pointer-events: none; font-family: var(--font-mono); text-shadow: 0 2px 16px rgba(0,0,0,.8); opacity: 0; transform: translate(-8px, 5px); transition: opacity .16s, transform .18s var(--ease); }
+.action-text.is-visible { opacity: 1; transform: translate(0,0); }
+.action-text b { display: block; font-size: 15px; letter-spacing: -.03em; color: #fff; white-space: nowrap; }
+.action-text span { display: block; margin-top: 4px; color: var(--accent); font: 800 8px/1 var(--font-mono); letter-spacing: .13em; }
+.board-overlay { position: absolute; z-index: 8; inset: 2px; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px; text-align: center; background: radial-gradient(circle at 50% 42%, rgba(19,27,44,.78), rgba(3,5,9,.93) 68%); backdrop-filter: blur(8px); clip-path: polygon(0 0,100% 0,100% calc(100% - 11px),calc(100% - 11px) 100%,0 100%); }
+.mode-kicker { color: var(--accent); font: 800 7px/1 var(--font-mono); letter-spacing: .22em; }
+.start-overlay h1 { margin: 8px 0 9px; font: 900 31px/.9 var(--font-mono); letter-spacing: -.06em; text-shadow: 0 0 30px rgba(99,230,255,.18); }
+.start-overlay > p, .pause-overlay > p { max-width: 230px; margin: 0; color: var(--muted); font-size: 11px; line-height: 1.55; }
+.pb-line { width: 100%; margin: 25px 0 12px; display: flex; align-items: center; justify-content: space-between; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); padding: 9px 2px; font-family: var(--font-mono); }
+.pb-line span { color: var(--dim); font-size: 7px; letter-spacing: .14em; }
+.pb-line b { font-size: 12px; }
+.primary-button { min-width: 170px; height: 40px; border: 1px solid rgba(99,230,255,.58); background: linear-gradient(135deg, rgba(99,230,255,.16), rgba(99,230,255,.06)); color: #fff; display: inline-flex; align-items: center; justify-content: center; gap: 14px; font: 800 11px/1 var(--font-mono); letter-spacing: .13em; cursor: pointer; box-shadow: 0 0 28px rgba(99,230,255,.08), inset 0 1px rgba(255,255,255,.08); transition: .16s var(--ease); }
+.primary-button:hover { transform: translateY(-2px); border-color: var(--accent); box-shadow: 0 8px 30px rgba(0,0,0,.22), 0 0 26px rgba(99,230,255,.15); }
+.start-options { display: flex; gap: 9px; margin-top: 17px; flex-wrap: wrap; justify-content: center; }
+.start-options label { display: flex; align-items: center; gap: 5px; color: var(--dim); font: 700 6px/1 var(--font-mono); cursor: pointer; }
+.start-options label.is-disabled { opacity: .34; cursor: not-allowed; }
+.start-options input { position: absolute; opacity: 0; }
+.start-options i { width: 10px; height: 10px; border: 1px solid var(--line-strong); background: rgba(0,0,0,.25); }
+.start-options input:checked + i { border-color: var(--accent); background: var(--accent); box-shadow: inset 0 0 0 2px #111827; }
+.countdown-overlay { background: rgba(3,5,9,.56); }
+.countdown-overlay div { color: var(--muted); font: 800 8px/1 var(--font-mono); letter-spacing: .22em; }
+.countdown-overlay strong { margin-top: 7px; font: 900 76px/.9 var(--font-mono); letter-spacing: -.1em; text-shadow: 0 0 34px rgba(99,230,255,.3); animation: countdownPop 480ms var(--ease); }
+.countdown-overlay[data-style="stride"] strong { font-size: 43px; letter-spacing: -.055em; }
+@keyframes countdownPop { from { opacity: 0; transform: scale(.72); } 30% { opacity: 1; transform: scale(1.08); } to { transform: scale(1); } }
+.pause-overlay h2, .result-overlay h2 { margin: 10px 0; font: 900 30px/1 var(--font-mono); letter-spacing: -.05em; }
+.pause-overlay .primary-button { margin-top: 23px; }
+.text-button { border: 0; background: none; color: var(--muted); margin-top: 13px; font: 700 8px/1 var(--font-mono); letter-spacing: .12em; cursor: pointer; }
+.text-button:hover { color: #fff; }
+.result-overlay { background: radial-gradient(circle at 50% 30%, rgba(27,42,60,.86), rgba(3,5,9,.95) 72%); }
+.result-overlay h2 { font-size: 31px; margin-bottom: 4px; }
+.result-badge { color: var(--good); font: 800 8px/1 var(--font-mono); letter-spacing: .16em; }
+.result-grid { width: 100%; display: grid; grid-template-columns: repeat(2,1fr); gap: 1px; margin: 22px 0 18px; background: var(--line); border: 1px solid var(--line); }
+.result-grid > div { padding: 9px; display: flex; flex-direction: column; gap: 4px; background: rgba(5,8,14,.9); }
+.result-grid span { color: var(--dim); font: 800 7px/1 var(--font-mono); letter-spacing: .13em; }
+.result-grid b { font: 800 13px/1 var(--font-mono); }
+.result-actions { display: flex; gap: 6px; margin-top: 9px; }
+.result-actions button { border: 1px solid var(--line); background: rgba(255,255,255,.025); color: var(--muted); padding: 8px 9px; font: 700 7px/1 var(--font-mono); cursor: pointer; }
+.result-actions button:hover { color: #fff; border-color: var(--line-strong); }
+.handling-strip { height: 39px; display: grid; grid-template-columns: repeat(4,1fr) auto; align-items: center; margin-top: 9px; border: 1px solid var(--line); background: rgba(8,11,18,.74); backdrop-filter: blur(12px); }
+.handling-strip > div { height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; border-right: 1px solid var(--line); }
+.handling-strip span { color: var(--dim); font: 800 6px/1 var(--font-mono); letter-spacing: .13em; }
+.handling-strip b { margin-top: 3px; font: 800 9px/1 var(--font-mono); }
+.handling-strip button { align-self: stretch; border: 0; background: rgba(99,230,255,.06); color: var(--accent); padding: 0 9px; font: 800 7px/1 var(--font-mono); cursor: pointer; }
+.handling-strip button:hover { background: rgba(99,230,255,.12); }
+
+.footerbar { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; min-width: 0; padding: 0 20px; border-top: 1px solid var(--line); background: rgba(5,8,14,.9); backdrop-filter: blur(12px); color: var(--muted); }
+.footerbar > div:first-child { display: flex; align-items: center; gap: 7px; font-family: var(--font-mono); }
+.status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--good); box-shadow: 0 0 10px rgba(95,242,173,.6); }
+.footerbar b { color: #cdd6e7; font-size: 8px; letter-spacing: .1em; }
+.footerbar small { color: var(--dim); font-size: 7px; }
+.footerbar p { margin: 0; font-size: 8px; color: #525b6c; }
+.footer-actions { justify-self: end; display: flex; align-items: center; gap: 6px; }
+.footer-actions button { border: 0; background: none; color: var(--dim); font: 700 7px/1 var(--font-mono); cursor: pointer; }
+.footer-actions button:hover { color: #fff; }
+
+.settings-backdrop { position: fixed; z-index: 20; inset: 0; background: rgba(0,0,0,.66); backdrop-filter: blur(5px); animation: fadeIn .18s; }
+.settings-panel { position: fixed; z-index: 21; top: 0; right: 0; width: min(720px, 94vw); height: 100%; display: grid; grid-template-rows: 78px 46px minmax(0,1fr) 52px; background: linear-gradient(160deg, rgba(15,20,31,.98), rgba(5,8,13,.99)); border-left: 1px solid var(--line-strong); box-shadow: -28px 0 80px rgba(0,0,0,.5); animation: panelIn .25s var(--ease); }
+@keyframes fadeIn { from { opacity: 0; } }
+@keyframes panelIn { from { transform: translateX(35px); opacity: 0; } }
+.settings-header { display: flex; align-items: center; justify-content: space-between; padding: 0 23px; border-bottom: 1px solid var(--line); }
+.settings-header > div { display: flex; align-items: baseline; gap: 13px; }
+.settings-header span { color: var(--accent); font: 800 8px/1 var(--font-mono); letter-spacing: .15em; }
+.settings-header h2 { margin: 0; font: 900 25px/1 var(--font-mono); letter-spacing: -.05em; }
+.settings-header .icon-button { font-size: 23px; }
+.settings-tabs { display: flex; padding: 0 14px; border-bottom: 1px solid var(--line); }
+.settings-tab { flex: 1; border: 0; border-bottom: 2px solid transparent; background: none; color: var(--dim); font: 800 8px/1 var(--font-mono); letter-spacing: .11em; cursor: pointer; }
+.settings-tab:hover { color: #c9d3e7; }
+.settings-tab.is-active { color: #fff; border-bottom-color: var(--accent); background: linear-gradient(180deg, transparent, rgba(99,230,255,.05)); }
+.settings-scroll { overflow: auto; scrollbar-color: rgba(255,255,255,.15) transparent; }
+.settings-section { display: none; padding: 25px 26px 40px; }
+.settings-section.is-active { display: block; }
+.section-heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: 7px; }
+.section-heading span { color: var(--accent); font: 800 7px/1 var(--font-mono); letter-spacing: .18em; }
+.section-heading h3 { margin: 5px 0 0; font: 900 20px/1 var(--font-mono); letter-spacing: -.04em; }
+.section-heading > button, .mini-button { border: 1px solid var(--line); background: rgba(255,255,255,.025); color: var(--muted); padding: 7px 10px; font: 800 7px/1 var(--font-mono); cursor: pointer; }
+.section-heading > button:hover, .mini-button:hover { color: #fff; border-color: var(--line-strong); }
+.section-note { margin: 0 0 19px; color: var(--muted); font-size: 10px; line-height: 1.55; }
+.range-setting { display: grid; grid-template-columns: minmax(200px,1fr) 62px 170px 72px; gap: 12px; align-items: center; min-height: 68px; border-top: 1px solid var(--line); }
+.range-setting:last-of-type { border-bottom: 1px solid var(--line); }
+.range-setting label, .select-row label { color: #e1e7f3; font: 800 9px/1 var(--font-mono); letter-spacing: .08em; }
+.range-setting p, .select-row p { margin: 5px 0 0; color: var(--dim); font-size: 9px; line-height: 1.35; }
+.range-setting output { justify-self: end; color: var(--accent); font: 800 10px/1 var(--font-mono); }
+input[type="range"] { appearance: none; width: 100%; height: 18px; background: transparent; cursor: pointer; }
+input[type="range"]::-webkit-slider-runnable-track { height: 3px; background: linear-gradient(90deg, rgba(99,230,255,.5), rgba(146,120,255,.25)); border-radius: 99px; }
+input[type="range"]::-webkit-slider-thumb { appearance: none; width: 13px; height: 13px; margin-top: -5px; border: 2px solid #111724; border-radius: 50%; background: var(--accent); box-shadow: 0 0 12px rgba(99,230,255,.5); }
+input[type="range"]::-moz-range-track { height: 3px; background: rgba(99,230,255,.4); }
+input[type="range"]::-moz-range-thumb { width: 11px; height: 11px; border: 2px solid #111724; border-radius: 50%; background: var(--accent); }
+.number-input { width: 72px; height: 29px; border: 1px solid var(--line); background: rgba(0,0,0,.24); color: #dce4f3; padding: 0 7px; font: 700 9px/1 var(--font-mono); }
+.sdf-setting { grid-template-columns: minmax(200px,1fr) 62px 170px 72px; }
+.sdf-setting .mini-button { width: 72px; height: 29px; }
+.toggle-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; margin-top: 17px; }
+.toggle-card { min-height: 62px; display: flex; align-items: center; gap: 11px; padding: 10px 12px; border: 1px solid var(--line); background: rgba(255,255,255,.018); cursor: pointer; transition: .15s; }
+.toggle-card:hover { border-color: var(--line-strong); background: rgba(255,255,255,.035); }
+.toggle-card input { position: absolute; opacity: 0; }
+.toggle-card i { flex: 0 0 auto; position: relative; width: 30px; height: 16px; border-radius: 99px; border: 1px solid var(--line-strong); background: rgba(0,0,0,.35); }
+.toggle-card i::after { content: ""; position: absolute; top: 2px; left: 2px; width: 10px; height: 10px; border-radius: 50%; background: #727b8d; transition: .16s var(--ease); }
+.toggle-card input:checked + i { border-color: rgba(99,230,255,.55); background: rgba(99,230,255,.13); }
+.toggle-card input:checked + i::after { left: 16px; background: var(--accent); box-shadow: 0 0 9px rgba(99,230,255,.6); }
+.toggle-card span { min-width: 0; display: flex; flex-direction: column; gap: 5px; }
+.toggle-card b { font: 800 8px/1.2 var(--font-mono); letter-spacing: .04em; }
+.toggle-card small { color: var(--dim); font-size: 8px; line-height: 1.35; }
+.select-row { min-height: 64px; display: grid; grid-template-columns: 1fr 150px; gap: 16px; align-items: center; border-top: 1px solid var(--line); }
+.select-row:first-of-type { margin-top: 18px; }
+.select-row select { height: 31px; border: 1px solid var(--line); background: #0a0e17; color: #dce4f3; padding: 0 9px; font: 700 9px/1 var(--font-mono); }
+.wide-button { width: 100%; height: 40px; margin-top: 19px; border: 1px solid rgba(99,230,255,.45); background: rgba(99,230,255,.07); color: var(--accent); font: 800 9px/1 var(--font-mono); letter-spacing: .1em; cursor: pointer; }
+.wide-button:hover { background: rgba(99,230,255,.12); }
+.preset-row { display: flex; gap: 4px; margin: 17px 0 12px; }
+.preset-row button { flex: 1; height: 32px; border: 1px solid var(--line); background: rgba(255,255,255,.02); color: var(--muted); font: 800 8px/1 var(--font-mono); cursor: pointer; }
+.preset-row button.is-active { border-color: rgba(99,230,255,.45); background: rgba(99,230,255,.08); color: var(--accent); }
+.bindings-list { border-top: 1px solid var(--line); }
+.binding-row { display: grid; grid-template-columns: minmax(170px,1fr) repeat(3,105px); gap: 7px; align-items: center; min-height: 52px; border-bottom: 1px solid var(--line); }
+.binding-row > span { color: #dce4f3; font: 800 8px/1 var(--font-mono); letter-spacing: .07em; }
+.binding-slot { min-width: 0; height: 28px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border: 1px solid var(--line); background: rgba(0,0,0,.22); color: #aeb9cc; padding: 0 7px; font: 700 8px/1 var(--font-mono); cursor: pointer; }
+.binding-slot:hover, .binding-slot.is-listening { color: #fff; border-color: var(--accent); background: rgba(99,230,255,.06); }
+.compact-range { margin-top: 17px; grid-template-columns: minmax(200px,1fr) 62px 240px; }
+.compact-range input { grid-column: 3; }
+.data-card { min-height: 82px; display: grid; grid-template-columns: 1fr auto; gap: 18px; align-items: center; padding: 13px 0; border-top: 1px solid var(--line); }
+.data-card b { font: 800 9px/1 var(--font-mono); letter-spacing: .06em; }
+.data-card p { margin: 6px 0 0; color: var(--dim); font-size: 9px; line-height: 1.45; }
+.data-card button { min-width: 90px; height: 31px; border: 1px solid var(--line); background: rgba(255,255,255,.025); color: #d0d8e8; font: 800 8px/1 var(--font-mono); cursor: pointer; }
+.data-card button:hover { border-color: var(--line-strong); background: rgba(255,255,255,.05); }
+.danger-card button { color: var(--danger); border-color: rgba(255,79,103,.25); }
+.about-card { margin-top: 19px; padding: 15px; border: 1px solid var(--line); background: rgba(0,0,0,.2); }
+.about-card b { color: var(--accent); font: 800 8px/1 var(--font-mono); letter-spacing: .1em; }
+.about-card p { color: var(--muted); font-size: 9px; line-height: 1.55; }
+.about-card span { color: var(--dim); font: 700 7px/1 var(--font-mono); }
+.settings-footer { display: flex; align-items: center; justify-content: space-between; padding: 0 19px 0 25px; border-top: 1px solid var(--line); background: rgba(3,5,9,.7); }
+.settings-footer span { color: var(--dim); font: 700 7px/1 var(--font-mono); letter-spacing: .1em; }
+.settings-footer button { min-width: 90px; height: 32px; border: 1px solid rgba(99,230,255,.45); background: rgba(99,230,255,.08); color: var(--accent); font: 800 8px/1 var(--font-mono); cursor: pointer; }
+.binding-capture { position: fixed; z-index: 30; inset: 0; display: grid; place-items: center; background: rgba(2,4,7,.82); backdrop-filter: blur(9px); }
+.binding-capture > div { width: min(430px,88vw); padding: 32px; border: 1px solid rgba(99,230,255,.42); background: rgba(10,14,23,.96); text-align: center; box-shadow: 0 22px 80px rgba(0,0,0,.45), 0 0 45px rgba(99,230,255,.08); }
+.binding-capture span { color: var(--accent); font: 800 8px/1 var(--font-mono); letter-spacing: .14em; }
+.binding-capture strong { display: block; margin-top: 10px; font: 900 17px/1.2 var(--font-mono); }
+.binding-capture p { margin: 17px 0 0; color: var(--dim); font-size: 9px; }
+.toast-host { position: fixed; z-index: 40; left: 50%; bottom: 58px; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 7px; pointer-events: none; }
+.toast { min-width: 180px; padding: 9px 13px; border: 1px solid var(--line-strong); background: rgba(7,10,17,.93); color: #dce4f3; box-shadow: 0 10px 35px rgba(0,0,0,.35); font: 800 8px/1 var(--font-mono); letter-spacing: .06em; text-align: center; animation: toastIn .2s var(--ease); }
+.toast.is-accent { color: var(--accent); border-color: rgba(99,230,255,.36); }
+.toast.is-danger { color: #ff8797; border-color: rgba(255,79,103,.4); }
+@keyframes toastIn { from { opacity: 0; transform: translateY(8px); } }
+
+.app[data-state="playing"] .start-overlay, .app[data-state="countdown"] .start-overlay, .app[data-state="paused"] .start-overlay, .app[data-state="over"] .start-overlay { display: none; }
+.app:not([data-state="playing"]) .objective-row > button { opacity: .3; pointer-events: none; }
+.app[data-state="playing"] .status-dot { animation: statusBlink 1.4s ease-in-out infinite alternate; }
+@keyframes statusBlink { to { opacity: .4; } }
+
+@media (max-height: 790px) {
+  .app { grid-template-rows: 58px minmax(0,1fr) 36px; }
+  .topbar { padding: 0 18px; }
+  .side { height: calc(100vh - 106px); }
+  .game-layout { padding-top: 7px; padding-bottom: 4px; }
+  .board-column { --board-scale: .88; }
+  .objective-row { height: 33px; }
+  .handling-strip { margin-top: 5px; }
+  .next-canvas { height: 52px; }
+  .next-canvas:first-child { height: 67px; }
+  .hold-panel canvas { height: 85px; }
+}
+@media (max-width: 920px) {
+  .game-layout { grid-template-columns: 150px auto 150px; gap: 16px; padding-left: 12px; padding-right: 12px; }
+  .topbar { grid-template-columns: auto 1fr auto; }
+  .mode-tabs { justify-self: center; }
+  .mode-tab { min-width: 82px; }
+  .brand-copy small, .perf-badge { display: none; }
+  .side { max-width: 150px; }
+  .action-text { left: auto; right: calc(100% + 10px); text-align: right; }
+}
+@media (max-width: 700px) {
+  html, body { overflow: auto; min-height: 100%; }
+  .app { min-height: 100vh; height: auto; grid-template-rows: 58px auto 38px; }
+  .topbar { position: sticky; top: 0; z-index: 10; grid-template-columns: auto 1fr auto; padding: 0 10px; }
+  .brand-copy, .perf-badge, .top-actions .icon-button { display: none; }
+  .config-button { padding: 0 8px; }
+  .mode-tab { min-width: 66px; font-size: 8px; }
+  .game-layout { grid-template-columns: 1fr; justify-items: center; padding: 8px 8px 18px; }
+  .side { display: none; }
+  .board-column { --board-scale: min(1, calc((100vw - 34px) / 300)); }
+  .footerbar { grid-template-columns: 1fr auto; padding: 0 10px; }
+  .footerbar p, .footer-actions button:first-child { display: none; }
+  .action-text { display: none; }
+  .settings-panel { width: 100%; }
+  .range-setting { grid-template-columns: 1fr 60px; gap: 8px; padding: 10px 0; }
+  .range-setting input[type="range"] { grid-column: 1; }
+  .range-setting .number-input, .range-setting .mini-button { grid-column: 2; grid-row: 2; }
+  .compact-range input[type="range"] { grid-column: 1 / -1; }
+  .toggle-grid { grid-template-columns: 1fr; }
+  .binding-row { grid-template-columns: 1fr repeat(3,72px); }
+  .binding-slot { font-size: 7px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; }
+}
+
+/* Runtime states */
+.action-text {
+  color: #f2f6ff;
+  font: 900 12px/1.15 var(--font-mono);
+  letter-spacing: .02em;
+  white-space: normal;
+}
+.action-text[data-tone="accent"] { color: var(--accent); text-shadow: 0 0 20px rgba(99,230,255,.45), 0 2px 16px rgba(0,0,0,.8); }
+.action-text[data-tone="danger"] { color: #ff8797; text-shadow: 0 0 20px rgba(255,79,103,.45), 0 2px 16px rgba(0,0,0,.8); }
+.pro-disabled .pro-only { display: none !important; }
+.perf-badge.is-low { color: #ff8797; border-color: rgba(255,79,103,.35); }
+.icon-button.is-muted { color: var(--dim); opacity: .7; }
+.reduced-motion .ambient-grid,
+.reduced-motion .ambient-glow,
+.reduced-motion .board-rig.is-danger .danger-glow { animation: none !important; }
+button:disabled { opacity: .35; cursor: default !important; }
+
+</style>
+</head>
+<body>
+  <div class="ambient" aria-hidden="true">
+    <div class="ambient-grid"></div>
+    <div class="ambient-glow glow-a"></div>
+    <div class="ambient-glow glow-b"></div>
+    <div class="noise"></div>
+  </div>
+
+  <div id="app" class="app" data-state="idle">
+    <header class="topbar">
+      <button id="brandButton" class="brand" type="button" aria-label="홈">
+        <span class="brand-mark">S</span>
+        <span class="brand-copy"><b>STACK<span>//</span>LAB</b><small>HIGH FIDELITY TRAINER</small></span>
+      </button>
+
+      <nav class="mode-tabs" aria-label="연습 모드">
+        <button class="mode-tab is-active" type="button" data-mode="sprint">40 LINES</button>
+        <button class="mode-tab" type="button" data-mode="zen">ZEN</button>
+        <button class="mode-tab" type="button" data-mode="custom">CUSTOM</button>
+      </nav>
+
+      <div class="top-actions">
+        <div id="performanceBadge" class="perf-badge" title="렌더링 FPS / 고정 시뮬레이션 주파수">
+          <span id="fpsValue">60</span><small>FPS</small><i></i><span>60</span><small>TPS</small>
+        </div>
+        <button id="audioButton" class="icon-button" type="button" title="소리 켜기/끄기" aria-label="소리 켜기/끄기">◖</button>
+        <button id="fullscreenButton" class="icon-button" type="button" title="전체 화면" aria-label="전체 화면">⛶</button>
+        <button id="configButton" class="config-button" type="button"><span>CONFIG</span><kbd>F10</kbd></button>
+      </div>
+    </header>
+
+    <main class="game-layout">
+      <aside class="side side-left">
+        <section class="piece-panel hold-panel">
+          <header><span>HOLD</span><small id="holdState">READY</small></header>
+          <canvas id="holdCanvas" width="160" height="116" aria-label="홀드 조각"></canvas>
+        </section>
+
+        <section class="stat-stack pro-only">
+          <div class="big-stat"><span>INPUTS</span><strong id="inputsValue">0</strong></div>
+          <div class="small-stat-row"><span>KPP</span><b id="kppValue">0.00</b></div>
+          <div class="small-stat-row"><span>KEYS / SEC</span><b id="kpsValue">0.00</b></div>
+        </section>
+
+        <section class="run-card">
+          <header><span>RUN</span><small id="seedValue">—</small></header>
+          <div class="run-row"><span>PIECES</span><b id="piecesValue">0</b></div>
+          <div class="run-row"><span>LINES</span><b id="linesValue">0</b></div>
+          <div class="run-row"><span>SCORE</span><b id="scoreValue">0</b></div>
+          <div class="run-row"><span>COMBO</span><b id="comboValue">—</b></div>
+          <div class="run-row"><span>B2B</span><b id="b2bValue">—</b></div>
+        </section>
+      </aside>
+
+      <section class="board-column">
+        <div class="objective-row">
+          <div><span id="objectiveLabel">LINES LEFT</span><strong id="objectiveValue">40</strong></div>
+          <button id="pauseButton" type="button" title="일시정지"><span>Ⅱ</span></button>
+        </div>
+
+        <div id="boardRig" class="board-rig">
+          <div id="dangerGlow" class="danger-glow"></div>
+          <canvas id="boardCanvas" width="600" height="1200" aria-label="게임 보드"></canvas>
+          <canvas id="fxCanvas" width="600" height="1200" aria-hidden="true"></canvas>
+          <div id="actionText" class="action-text" aria-live="polite"></div>
+
+          <div id="startOverlay" class="board-overlay start-overlay">
+            <div class="mode-kicker" id="modeKicker">SOLO / 40 LINES</div>
+            <h1 id="modeTitle">40 LINES</h1>
+            <p id="modeDescription">40줄을 가능한 한 빠르게 제거하세요.</p>
+            <div class="pb-line"><span>PERSONAL BEST</span><b id="pbValue">—</b></div>
+            <button id="startButton" class="primary-button" type="button"><span>START</span><kbd>SPACE</kbd></button>
+            <div class="start-options">
+              <label><input id="proModeToggle" type="checkbox" checked /><i></i><span>PRO MODE</span></label>
+              <label><input id="finesseAlertToggle" type="checkbox" checked /><i></i><span>FINESSE ALERT</span></label>
+              <label><input id="finesseRetryToggle" type="checkbox" /><i></i><span>RETRY ON FAULT</span></label>
+              <label><input id="strideModeToggle" type="checkbox" /><i></i><span>STRIDE MODE</span></label>
+            </div>
+          </div>
+
+          <div id="countdownOverlay" class="board-overlay countdown-overlay is-hidden">
+            <div id="countdownSub">GET READY</div>
+            <strong id="countdownValue">3</strong>
+          </div>
+
+          <div id="pauseOverlay" class="board-overlay pause-overlay is-hidden">
+            <div class="mode-kicker">GAME PAUSED</div>
+            <h2>PAUSED</h2>
+            <p>ESC 또는 아래 버튼으로 계속합니다.</p>
+            <button id="resumeButton" class="primary-button" type="button">RESUME</button>
+            <button id="pauseRestartButton" class="text-button" type="button">RESTART RUN</button>
+          </div>
+
+          <div id="resultOverlay" class="board-overlay result-overlay is-hidden">
+            <div id="resultKicker" class="mode-kicker">RUN COMPLETE</div>
+            <h2 id="resultTime">00:00.000</h2>
+            <div id="resultBadge" class="result-badge">COMPLETE</div>
+            <div class="result-grid">
+              <div><span>PPS</span><b id="resultPps">0.00</b></div>
+              <div><span>KPP</span><b id="resultKpp">0.00</b></div>
+              <div><span>FINESSE</span><b id="resultFinesse">0</b></div>
+              <div><span>PIECES</span><b id="resultPieces">0</b></div>
+            </div>
+            <button id="retryButton" class="primary-button" type="button"><span>RETRY</span><kbd>R</kbd></button>
+            <div class="result-actions">
+              <button id="newSeedButton" type="button">NEW SEED</button>
+              <button id="exportReplayButton" type="button">EXPORT REPLAY</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="handling-strip" aria-label="현재 핸들링">
+          <div><span>ARR</span><b id="arrHud">2.0F</b></div>
+          <div><span>DAS</span><b id="dasHud">12.0F</b></div>
+          <div><span>DCD</span><b id="dcdHud">0.0F</b></div>
+          <div><span>SDF</span><b id="sdfHud">6×</b></div>
+          <button id="handlingEditButton" type="button">EDIT</button>
+        </div>
+      </section>
+
+      <aside class="side side-right">
+        <section class="piece-panel next-panel">
+          <header><span>NEXT</span><small>5</small></header>
+          <div class="next-list">
+            <canvas class="next-canvas is-first" width="160" height="104"></canvas>
+            <canvas class="next-canvas" width="160" height="82"></canvas>
+            <canvas class="next-canvas" width="160" height="82"></canvas>
+            <canvas class="next-canvas" width="160" height="82"></canvas>
+            <canvas class="next-canvas" width="160" height="82"></canvas>
+          </div>
+        </section>
+
+        <section class="stat-stack pro-only finesse-stack">
+          <div class="big-stat"><span>FINESSE</span><strong id="finesseValue">0</strong></div>
+          <div class="small-stat-row"><span>PPS</span><b id="ppsValue">0.00</b></div>
+          <div class="small-stat-row"><span>APP</span><b id="appValue">0.00</b></div>
+        </section>
+
+        <section class="key-hints">
+          <header><span>CONTROLS</span><small>LIVE</small></header>
+          <div><kbd id="hintLeft">←</kbd><span>MOVE</span><kbd id="hintRight">→</kbd></div>
+          <div><kbd id="hintCcw">Z</kbd><span>ROTATE</span><kbd id="hintCw">↑</kbd></div>
+          <div><kbd id="hintHold">C</kbd><span>HOLD</span><kbd id="hintHard">SPACE</kbd></div>
+          <div><kbd id="hintRestart">R</kbd><span>RETRY</span><kbd id="hintPause">ESC</kbd></div>
+        </section>
+      </aside>
+    </main>
+
+    <footer class="footerbar">
+      <div><span class="status-dot"></span><b id="statusText">READY</b><small id="latencyText">INPUT QUEUE 0.0 ms</small></div>
+      <p>독립 제작 연습 도구 · 원본 로고, 음원, 그래픽 자산을 사용하지 않습니다.</p>
+      <div class="footer-actions"><button id="sameSeedRestartButton" type="button">SAME SEED</button><button id="footerRestartButton" type="button">RESTART <kbd>R</kbd></button></div>
+    </footer>
+  </div>
+
+  <div id="settingsBackdrop" class="settings-backdrop is-hidden"></div>
+  <aside id="settingsPanel" class="settings-panel is-hidden" aria-label="설정" aria-modal="true" role="dialog">
+    <header class="settings-header">
+      <div><span>STACK//LAB</span><h2>CONFIG</h2></div>
+      <button id="closeSettingsButton" class="icon-button" type="button" aria-label="설정 닫기">×</button>
+    </header>
+
+    <nav class="settings-tabs" aria-label="설정 분류">
+      <button class="settings-tab is-active" type="button" data-tab="handling">HANDLING</button>
+      <button class="settings-tab" type="button" data-tab="controls">CONTROLS</button>
+      <button class="settings-tab" type="button" data-tab="gameplay">GAMEPLAY</button>
+      <button class="settings-tab" type="button" data-tab="visual">VISUAL</button>
+      <button class="settings-tab" type="button" data-tab="data">DATA</button>
+    </nav>
+
+    <div class="settings-scroll">
+      <section class="settings-section is-active" data-section="handling">
+        <div class="section-heading"><div><span>INPUT RESPONSE</span><h3>HANDLING</h3></div><button id="resetHandlingButton" type="button">RESET</button></div>
+        <p class="section-note">값의 단위는 60Hz 시뮬레이션 프레임입니다. 소수 프레임도 누적기로 처리합니다.</p>
+
+        <div class="range-setting">
+          <div><label for="arrRange">ARR</label><p>DAS가 충전된 뒤 한 칸 반복 이동하는 간격. 0F는 즉시 벽 이동.</p></div>
+          <output id="arrOutput" for="arrRange">2.0F</output>
+          <input id="arrRange" type="range" min="0" max="10" step="0.1" />
+          <input id="arrNumber" class="number-input" type="number" min="0" max="20" step="0.1" />
+        </div>
+        <div class="range-setting">
+          <div><label for="dasRange">DAS</label><p>첫 횡이동 이후 자동 반복이 시작되기까지의 유지 시간.</p></div>
+          <output id="dasOutput" for="dasRange">12.0F</output>
+          <input id="dasRange" type="range" min="1" max="30" step="0.1" />
+          <input id="dasNumber" class="number-input" type="number" min="1" max="60" step="0.1" />
+        </div>
+        <div class="range-setting">
+          <div><label for="dcdRange">DCD</label><p>하드드롭·회전 뒤 보존된 DAS 자동 이동을 일시 정지하는 시간.</p></div>
+          <output id="dcdOutput" for="dcdRange">0.0F</output>
+          <input id="dcdRange" type="range" min="0" max="20" step="0.1" />
+          <input id="dcdNumber" class="number-input" type="number" min="0" max="60" step="0.1" />
+        </div>
+        <div class="range-setting sdf-setting">
+          <div><label for="sdfRange">SDF</label><p>소프트드롭 배율. MAX는 바닥까지 즉시 내리되 잠그지 않음.</p></div>
+          <output id="sdfOutput" for="sdfRange">6×</output>
+          <input id="sdfRange" type="range" min="1" max="41" step="1" />
+          <button id="sdfMaxButton" class="mini-button" type="button">MAX</button>
+        </div>
+
+        <div class="toggle-grid">
+          <label class="toggle-card"><input id="hardDropSafetyToggle" type="checkbox" /><i></i><span><b>PREVENT ACCIDENTAL HARD DROPS</b><small>키를 놓기 전 다음 조각의 연속 하드드롭 방지</small></span></label>
+          <label class="toggle-card"><input id="cancelDasToggle" type="checkbox" /><i></i><span><b>CANCEL DAS ON DIRECTION CHANGE</b><small>반대 방향 입력 시 이전 방향의 충전을 초기화</small></span></label>
+          <label class="toggle-card"><input id="softDropPriorityToggle" type="checkbox" /><i></i><span><b>PREFER SOFT DROP OVER MOVEMENT</b><small>동일 틱에서 낙하를 횡이동보다 먼저 처리</small></span></label>
+        </div>
+
+        <div class="select-row">
+          <div><label for="irsSelect">ROTATION BUFFERING (IRS)</label><p>조각 출현 전에 입력한 회전 처리 방식</p></div>
+          <select id="irsSelect"><option value="off">OFF</option><option value="hold">HOLD</option><option value="tap">TAP</option></select>
+        </div>
+        <div class="select-row">
+          <div><label for="ihsSelect">HOLD BUFFERING (IHS)</label><p>조각 출현 전에 입력한 홀드 처리 방식</p></div>
+          <select id="ihsSelect"><option value="off">OFF</option><option value="hold">HOLD</option><option value="tap">TAP</option></select>
+        </div>
+        <button id="handlingTestButton" class="wide-button" type="button">APPLY & START HANDLING TEST</button>
+      </section>
+
+      <section class="settings-section" data-section="controls">
+        <div class="section-heading"><div><span>KEYBOARD / GAMEPAD</span><h3>CONTROLS</h3></div><button id="resetControlsButton" type="button">RESET</button></div>
+        <div class="preset-row"><button id="guidelinePresetButton" class="is-active" type="button">GUIDELINE</button><button id="wasdPresetButton" type="button">WASD</button></div>
+        <p class="section-note">슬롯을 누른 뒤 키 또는 게임패드 버튼을 입력하세요. Backspace/Delete로 비울 수 있습니다.</p>
+        <div id="bindingsList" class="bindings-list"></div>
+        <div class="range-setting compact-range">
+          <div><label for="gamepadSensitivityRange">CONTROLLER SENSITIVITY</label><p>아날로그 스틱을 방향 입력으로 판정하는 임계값.</p></div>
+          <output id="gamepadSensitivityOutput">55%</output>
+          <input id="gamepadSensitivityRange" type="range" min="20" max="95" step="1" />
+        </div>
+      </section>
+
+      <section class="settings-section" data-section="gameplay">
+        <div class="section-heading"><div><span>RULESET</span><h3>GAMEPLAY</h3></div><button id="resetGameplayButton" type="button">RESET</button></div>
+        <div class="select-row"><div><label for="randomizerSelect">RANDOMIZER</label><p>재현 가능한 시드 기반 조각 생성기</p></div><select id="randomizerSelect"><option value="calm">CALM 7-BAG</option><option value="bag7">7-BAG</option><option value="bag14">14-BAG</option></select></div>
+        <div class="select-row"><div><label for="rotationSelect">ROTATION SYSTEM</label><p>기본은 대칭 I 킥과 180 킥을 포함한 SRS+</p></div><select id="rotationSelect"><option value="srsplus">SRS+</option><option value="srs">SRS</option></select></div>
+        <div class="range-setting"><div><label for="gravityRange">GRAVITY</label><p>한 시뮬레이션 프레임당 낙하 칸 수(G).</p></div><output id="gravityOutput">0.020G</output><input id="gravityRange" type="range" min="0" max="2" step="0.001" /><input id="gravityNumber" class="number-input" type="number" min="0" max="20" step="0.001" /></div>
+        <div class="range-setting"><div><label for="lockDelayRange">LOCK DELAY</label><p>바닥 접촉 후 자동 고정까지의 시간.</p></div><output id="lockDelayOutput">30F</output><input id="lockDelayRange" type="range" min="1" max="120" step="1" /><input id="lockDelayNumber" class="number-input" type="number" min="1" max="600" step="1" /></div>
+        <div class="range-setting"><div><label for="lockResetRange">LOCK RESETS</label><p>바닥에서 이동·회전으로 락 타이머를 초기화할 수 있는 횟수.</p></div><output id="lockResetOutput">15</output><input id="lockResetRange" type="range" min="0" max="30" step="1" /><input id="lockResetNumber" class="number-input" type="number" min="0" max="99" step="1" /></div>
+        <div class="range-setting"><div><label for="areRange">ARE</label><p>일반 고정 뒤 다음 조각까지의 지연.</p></div><output id="areOutput">0F</output><input id="areRange" type="range" min="0" max="60" step="1" /><input id="areNumber" class="number-input" type="number" min="0" max="600" step="1" /></div>
+        <div class="range-setting"><div><label for="lineAreRange">LINE CLEAR ARE</label><p>줄 제거 뒤 다음 조각까지의 지연.</p></div><output id="lineAreOutput">0F</output><input id="lineAreRange" type="range" min="0" max="60" step="1" /><input id="lineAreNumber" class="number-input" type="number" min="0" max="600" step="1" /></div>
+        <div class="range-setting"><div><label for="customLinesRange">CUSTOM TARGET</label><p>CUSTOM 모드에서 종료할 목표 줄 수. 0은 무한.</p></div><output id="customLinesOutput">100</output><input id="customLinesRange" type="range" min="0" max="300" step="10" /><input id="customLinesNumber" class="number-input" type="number" min="0" max="9999" step="1" /></div>
+        <div class="toggle-grid">
+          <label class="toggle-card"><input id="ghostToggle" type="checkbox" /><i></i><span><b>GHOST PIECE</b><small>착지 위치를 미리 표시</small></span></label>
+          <label class="toggle-card"><input id="holdEnabledToggle" type="checkbox" /><i></i><span><b>ENABLE HOLD</b><small>한 조각당 한 번 홀드 허용</small></span></label>
+          <label class="toggle-card"><input id="allow180Toggle" type="checkbox" /><i></i><span><b>ALLOW 180°</b><small>전용 180도 회전 키 활성화</small></span></label>
+        </div>
+      </section>
+
+      <section class="settings-section" data-section="visual">
+        <div class="section-heading"><div><span>RENDERING</span><h3>VISUAL & AUDIO</h3></div><button id="resetVisualButton" type="button">RESET</button></div>
+        <div class="range-setting"><div><label for="boardZoomRange">BOARD ZOOM</label><p>화면 내 보드 표시 크기.</p></div><output id="boardZoomOutput">100%</output><input id="boardZoomRange" type="range" min="75" max="120" step="1" /><input id="boardZoomNumber" class="number-input" type="number" min="60" max="140" step="1" /></div>
+        <div class="range-setting"><div><label for="gridOpacityRange">GRID VISIBILITY</label><p>플레이필드 격자 투명도.</p></div><output id="gridOpacityOutput">22%</output><input id="gridOpacityRange" type="range" min="0" max="100" step="1" /><input id="gridOpacityNumber" class="number-input" type="number" min="0" max="100" step="1" /></div>
+        <div class="range-setting"><div><label for="ghostOpacityRange">SHADOW VISIBILITY</label><p>고스트 조각 투명도.</p></div><output id="ghostOpacityOutput">28%</output><input id="ghostOpacityRange" type="range" min="0" max="100" step="1" /><input id="ghostOpacityNumber" class="number-input" type="number" min="0" max="100" step="1" /></div>
+        <div class="range-setting"><div><label for="bounceRange">BOARD BOUNCINESS</label><p>고정·줄 제거 시 보드 반동 강도.</p></div><output id="bounceOutput">55%</output><input id="bounceRange" type="range" min="0" max="100" step="1" /><input id="bounceNumber" class="number-input" type="number" min="0" max="100" step="1" /></div>
+        <div class="range-setting"><div><label for="particlesRange">PARTICLE COUNT</label><p>줄 제거·하드드롭 시 시각 효과 밀도.</p></div><output id="particlesOutput">65%</output><input id="particlesRange" type="range" min="0" max="100" step="1" /><input id="particlesNumber" class="number-input" type="number" min="0" max="100" step="1" /></div>
+        <div class="range-setting"><div><label for="volumeRange">SFX VOLUME</label><p>브라우저에서 합성되는 독립 효과음 볼륨.</p></div><output id="volumeOutput">55%</output><input id="volumeRange" type="range" min="0" max="100" step="1" /><input id="volumeNumber" class="number-input" type="number" min="0" max="100" step="1" /></div>
+        <div class="toggle-grid">
+          <label class="toggle-card"><input id="coloredGhostToggle" type="checkbox" /><i></i><span><b>COLORED SHADOW</b><small>고스트에 조각 색상 적용</small></span></label>
+          <label class="toggle-card"><input id="hardDropTrailToggle" type="checkbox" /><i></i><span><b>HARD DROP TRAIL</b><small>하드드롭 경로를 짧게 표시</small></span></label>
+          <label class="toggle-card"><input id="reducedMotionToggle" type="checkbox" /><i></i><span><b>REDUCED MOTION</b><small>반동과 파티클 애니메이션 최소화</small></span></label>
+        </div>
+      </section>
+
+      <section class="settings-section" data-section="data">
+        <div class="section-heading"><div><span>LOCAL STORAGE</span><h3>DATA</h3></div></div>
+        <div class="data-card"><div><b>EXPORT SETTINGS</b><p>핸들링, 키 설정, 게임플레이 및 시각 설정을 JSON으로 저장합니다.</p></div><button id="exportSettingsButton" type="button">EXPORT</button></div>
+        <div class="data-card"><div><b>IMPORT SETTINGS</b><p>이 앱에서 내보낸 설정 파일을 불러옵니다.</p></div><button id="importSettingsButton" type="button">IMPORT</button><input id="importSettingsInput" type="file" accept="application/json,.json" hidden /></div>
+        <div class="data-card"><div><b>IMPORT REPLAY</b><p>프레임 단위 입력과 시드가 기록된 STACK//LAB 리플레이를 재생합니다.</p></div><button id="importReplayButton" type="button">IMPORT</button><input id="importReplayInput" type="file" accept="application/json,.json" hidden /></div>
+        <div class="data-card danger-card"><div><b>RESET ALL LOCAL DATA</b><p>설정과 개인 기록을 모두 기본값으로 되돌립니다.</p></div><button id="resetAllDataButton" type="button">RESET ALL</button></div>
+        <div class="about-card">
+          <b>IMPLEMENTATION NOTES</b>
+          <p>10×40 플레이필드, 5 NEXT, 홀드, 시드 기반 7-bag, 고정 60Hz 시뮬레이션, SRS/SRS+ 90° 킥과 180° 킥, DAS/ARR/DCD/SDF, IRS/IHS, 락 딜레이 및 리셋 제한을 독립 구현했습니다.</p>
+          <p>이는 비공식 독립 연습 도구이며 원본 클라이언트 코드·서버·음원·로고·그래픽 자산을 포함하지 않습니다.</p>
+          <span id="buildLabel">BUILD 1.0.0</span>
+        </div>
+      </section>
+    </div>
+
+    <footer class="settings-footer">
+      <span id="settingsSaveState">SETTINGS SAVED LOCALLY</span>
+      <button id="doneSettingsButton" type="button">DONE</button>
+    </footer>
+  </aside>
+
+  <div id="bindingCapture" class="binding-capture is-hidden" role="dialog" aria-modal="true">
+    <div><span>PRESS A KEY OR GAMEPAD BUTTON</span><strong id="bindingCaptureLabel">MOVE LEFT · SLOT 1</strong><p>Backspace/Delete: 비우기 · Esc: 취소</p></div>
+  </div>
+
+  <div id="toastHost" class="toast-host" aria-live="polite"></div>
+  <input id="hiddenFileInput" type="file" hidden />
+
+  <script>
+(() => {
+  'use strict';
+
+  const VERSION = '1.0.1';
+  const TICK_RATE = 60;
+  const TICK_MS = 1000 / TICK_RATE;
+  const BOARD_W = 10;
+  const BOARD_H = 40;
+  const VISIBLE_H = 20;
+  const VISIBLE_START = BOARD_H - VISIBLE_H;
+  const CELL = 60;
+  const STORAGE_CONFIG = 'stacklab.config.v1';
+  const STORAGE_PB = 'stacklab.pb.v1';
+
+  const $ = (id) => document.getElementById(id);
+  const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+  const deepClone = (value) => JSON.parse(JSON.stringify(value));
+  const isObject = (value) => value && typeof value === 'object' && !Array.isArray(value);
+  const deepMerge = (base, patch) => {
+    const out = deepClone(base);
+    const merge = (target, source) => {
+      if (!isObject(source)) return target;
+      for (const [key, value] of Object.entries(source)) {
+        if (isObject(value) && isObject(target[key])) merge(target[key], value);
+        else if (value !== undefined) target[key] = deepClone(value);
+      }
+      return target;
+    };
+    return merge(out, patch);
+  };
+
+  const PIECES = ['I', 'J', 'L', 'O', 'S', 'T', 'Z'];
+  const PIECE_COLORS = {
+    I: '#5fe9f4',
+    J: '#6f89ff',
+    L: '#ffb14b',
+    O: '#ffe56b',
+    S: '#67e79b',
+    T: '#bc7cff',
+    Z: '#ff6680',
+  };
+
+  const SHAPES = {
+    I: [
+      [[0, 1], [1, 1], [2, 1], [3, 1]],
+      [[2, 0], [2, 1], [2, 2], [2, 3]],
+      [[0, 2], [1, 2], [2, 2], [3, 2]],
+      [[1, 0], [1, 1], [1, 2], [1, 3]],
+    ],
+    O: [
+      [[1, 0], [2, 0], [1, 1], [2, 1]],
+      [[1, 0], [2, 0], [1, 1], [2, 1]],
+      [[1, 0], [2, 0], [1, 1], [2, 1]],
+      [[1, 0], [2, 0], [1, 1], [2, 1]],
+    ],
+    T: [
+      [[1, 0], [0, 1], [1, 1], [2, 1]],
+      [[1, 0], [1, 1], [2, 1], [1, 2]],
+      [[0, 1], [1, 1], [2, 1], [1, 2]],
+      [[1, 0], [0, 1], [1, 1], [1, 2]],
+    ],
+    J: [
+      [[0, 0], [0, 1], [1, 1], [2, 1]],
+      [[1, 0], [2, 0], [1, 1], [1, 2]],
+      [[0, 1], [1, 1], [2, 1], [2, 2]],
+      [[1, 0], [1, 1], [0, 2], [1, 2]],
+    ],
+    L: [
+      [[2, 0], [0, 1], [1, 1], [2, 1]],
+      [[1, 0], [1, 1], [1, 2], [2, 2]],
+      [[0, 1], [1, 1], [2, 1], [0, 2]],
+      [[0, 0], [1, 0], [1, 1], [1, 2]],
+    ],
+    S: [
+      [[1, 0], [2, 0], [0, 1], [1, 1]],
+      [[1, 0], [1, 1], [2, 1], [2, 2]],
+      [[1, 1], [2, 1], [0, 2], [1, 2]],
+      [[0, 0], [0, 1], [1, 1], [1, 2]],
+    ],
+    Z: [
+      [[0, 0], [1, 0], [1, 1], [2, 1]],
+      [[2, 0], [1, 1], [2, 1], [1, 2]],
+      [[0, 1], [1, 1], [1, 2], [2, 2]],
+      [[1, 0], [0, 1], [1, 1], [0, 2]],
+    ],
+  };
+
+  // SRS kick coordinates converted to a screen coordinate system where +y points down.
+  const JLSTZ_90 = {
+    '0>1': [[0, 0], [-1, 0], [-1, -1], [0, 2], [-1, 2]],
+    '1>0': [[0, 0], [1, 0], [1, 1], [0, -2], [1, -2]],
+    '1>2': [[0, 0], [1, 0], [1, 1], [0, -2], [1, -2]],
+    '2>1': [[0, 0], [-1, 0], [-1, -1], [0, 2], [-1, 2]],
+    '2>3': [[0, 0], [1, 0], [1, -1], [0, 2], [1, 2]],
+    '3>2': [[0, 0], [-1, 0], [-1, 1], [0, -2], [-1, -2]],
+    '3>0': [[0, 0], [-1, 0], [-1, 1], [0, -2], [-1, -2]],
+    '0>3': [[0, 0], [1, 0], [1, -1], [0, 2], [1, 2]],
+  };
+
+  const I_90_SRS = {
+    '0>1': [[0, 0], [-2, 0], [1, 0], [-2, 1], [1, -2]],
+    '1>0': [[0, 0], [2, 0], [-1, 0], [2, -1], [-1, 2]],
+    '1>2': [[0, 0], [-1, 0], [2, 0], [-1, -2], [2, 1]],
+    '2>1': [[0, 0], [1, 0], [-2, 0], [1, 2], [-2, -1]],
+    '2>3': [[0, 0], [2, 0], [-1, 0], [2, -1], [-1, 2]],
+    '3>2': [[0, 0], [-2, 0], [1, 0], [-2, 1], [1, -2]],
+    '3>0': [[0, 0], [1, 0], [-2, 0], [1, 2], [-2, -1]],
+    '0>3': [[0, 0], [-1, 0], [2, 0], [-1, -2], [2, 1]],
+  };
+
+  // TETR.IO-style SRS+ mirrors the I piece's left-facing 90° kick tables.
+  const I_90_SRS_PLUS = {
+    ...I_90_SRS,
+    '0>3': [[0, 0], [2, 0], [-1, 0], [2, 1], [-1, -2]],
+    '3>0': [[0, 0], [-2, 0], [1, 0], [-2, -1], [1, 2]],
+    '3>2': [[0, 0], [1, 0], [-2, 0], [1, -2], [-2, 1]],
+    '2>3': [[0, 0], [-1, 0], [2, 0], [-1, 2], [2, -1]],
+  };
+
+  const JLSTZ_180 = {
+    '0>2': [[0, 0], [0, 1], [1, 1], [-1, 1], [1, 0], [-1, 0]],
+    '2>0': [[0, 0], [0, -1], [-1, -1], [1, -1], [-1, 0], [1, 0]],
+    '1>3': [[0, 0], [1, 0], [1, 2], [1, 1], [0, 2], [0, 1]],
+    '3>1': [[0, 0], [-1, 0], [-1, 2], [-1, 1], [0, 2], [0, 1]],
+  };
+
+  const I_180 = {
+    '0>2': [[0, 0], [0, 1]],
+    '2>0': [[0, 0], [0, -1]],
+    '1>3': [[0, 0], [1, 0]],
+    '3>1': [[0, 0], [-1, 0]],
+  };
+
+  const ACTION_META = [
+    ['moveLeft', 'MOVE LEFT'],
+    ['moveRight', 'MOVE RIGHT'],
+    ['softDrop', 'SOFT DROP'],
+    ['hardDrop', 'HARD DROP'],
+    ['rotateCCW', 'ROTATE COUNTERCLOCKWISE'],
+    ['rotateCW', 'ROTATE CLOCKWISE'],
+    ['rotate180', 'ROTATE 180°'],
+    ['hold', 'HOLD'],
+    ['retry', 'RETRY'],
+    ['pause', 'PAUSE'],
+    ['config', 'CONFIG'],
+    ['fullscreen', 'FULLSCREEN'],
+  ];
+
+  const GUIDELINE_BINDINGS = {
+    moveLeft: ['ArrowLeft', 'Numpad4', 'GP:B14'],
+    moveRight: ['ArrowRight', 'Numpad6', 'GP:B15'],
+    softDrop: ['ArrowDown', 'Numpad2', 'GP:B13'],
+    hardDrop: ['Space', 'Numpad8', 'GP:B1'],
+    rotateCCW: ['KeyZ', 'ControlLeft', 'GP:B2'],
+    rotateCW: ['ArrowUp', 'KeyX', 'GP:B0'],
+    rotate180: ['KeyA', '', 'GP:B3'],
+    hold: ['KeyC', 'ShiftLeft', 'GP:B4'],
+    retry: ['KeyR', '', ''],
+    pause: ['Escape', 'F1', 'GP:B9'],
+    config: ['F10', '', ''],
+    fullscreen: ['F11', '', ''],
+  };
+
+  const WASD_BINDINGS = {
+    moveLeft: ['KeyA', 'Numpad4', 'GP:B14'],
+    moveRight: ['KeyD', 'Numpad6', 'GP:B15'],
+    softDrop: ['KeyW', 'Numpad8', 'GP:B13'],
+    hardDrop: ['KeyS', 'Numpad5', 'GP:B1'],
+    rotateCCW: ['ArrowLeft', 'Numpad7', 'GP:B2'],
+    rotateCW: ['ArrowRight', 'Numpad9', 'GP:B0'],
+    rotate180: ['ArrowUp', 'Numpad2', 'GP:B3'],
+    hold: ['ShiftLeft', 'NumpadEnter', 'GP:B4'],
+    retry: ['KeyR', '', ''],
+    pause: ['Escape', 'F1', 'GP:B9'],
+    config: ['F10', '', ''],
+    fullscreen: ['F11', '', ''],
+  };
+
+  const PRESET_ALIASES = {
+    guideline: {
+      rotateCCW: ['ControlRight', 'Numpad3', 'Numpad7'],
+      rotateCW: ['Numpad1', 'Numpad5', 'Numpad9'],
+      hold: ['ShiftRight', 'Numpad0'],
+    },
+    wasd: {
+      hold: ['ShiftRight'],
+    },
+  };
+
+  const DEFAULT_CONFIG = {
+    handling: {
+      arr: 2,
+      das: 12,
+      dcd: 0,
+      sdf: 6,
+      sdfMax: false,
+      hardDropSafety: true,
+      cancelDas: false,
+      softDropPriority: false,
+      irs: 'hold',
+      ihs: 'hold',
+    },
+    controls: {
+      preset: 'guideline',
+      bindings: deepClone(GUIDELINE_BINDINGS),
+      gamepadSensitivity: 55,
+    },
+    gameplay: {
+      randomizer: 'calm',
+      rotation: 'srsplus',
+      gravity: 0.02,
+      lockDelay: 30,
+      lockResets: 15,
+      are: 0,
+      lineAre: 0,
+      customLines: 100,
+      ghost: true,
+      holdEnabled: true,
+      allow180: true,
+    },
+    visual: {
+      boardZoom: 100,
+      gridOpacity: 22,
+      ghostOpacity: 28,
+      bounce: 55,
+      particles: 65,
+      volume: 55,
+      coloredGhost: true,
+      hardDropTrail: true,
+      reducedMotion: false,
+    },
+    ui: {
+      mode: 'sprint',
+      proMode: true,
+      finesseAlert: true,
+      retryOnFinesse: false,
+      strideMode: false,
+      audioEnabled: true,
+    },
+  };
+
+  const sanitizeConfig = (candidate) => {
+    const cfg = deepMerge(DEFAULT_CONFIG, candidate || {});
+    cfg.handling.arr = clamp(Number(cfg.handling.arr) || 0, 0, 20);
+    cfg.handling.das = clamp(Number(cfg.handling.das) || 1, 1, 60);
+    cfg.handling.dcd = clamp(Number(cfg.handling.dcd) || 0, 0, 60);
+    cfg.handling.sdf = clamp(Number(cfg.handling.sdf) || 1, 1, 40);
+    cfg.handling.sdfMax = Boolean(cfg.handling.sdfMax);
+    cfg.handling.hardDropSafety = Boolean(cfg.handling.hardDropSafety);
+    cfg.handling.cancelDas = Boolean(cfg.handling.cancelDas);
+    cfg.handling.softDropPriority = Boolean(cfg.handling.softDropPriority);
+    if (!['off', 'hold', 'tap'].includes(cfg.handling.irs)) cfg.handling.irs = 'hold';
+    if (!['off', 'hold', 'tap'].includes(cfg.handling.ihs)) cfg.handling.ihs = 'hold';
+
+    cfg.controls.gamepadSensitivity = clamp(Number(cfg.controls.gamepadSensitivity) || 55, 20, 95);
+    cfg.controls.bindings = deepMerge(GUIDELINE_BINDINGS, cfg.controls.bindings || {});
+    for (const [action] of ACTION_META) {
+      const list = Array.isArray(cfg.controls.bindings[action]) ? cfg.controls.bindings[action].slice(0, 3) : [];
+      while (list.length < 3) list.push('');
+      cfg.controls.bindings[action] = list.map((x) => typeof x === 'string' ? x : '');
+    }
+
+    if (!['calm', 'bag7', 'bag14'].includes(cfg.gameplay.randomizer)) cfg.gameplay.randomizer = 'calm';
+    if (!['srsplus', 'srs'].includes(cfg.gameplay.rotation)) cfg.gameplay.rotation = 'srsplus';
+    cfg.gameplay.gravity = clamp(Number(cfg.gameplay.gravity) || 0, 0, 20);
+    cfg.gameplay.lockDelay = clamp(Math.round(Number(cfg.gameplay.lockDelay) || 30), 1, 600);
+    cfg.gameplay.lockResets = clamp(Math.round(Number(cfg.gameplay.lockResets) || 0), 0, 99);
+    cfg.gameplay.are = clamp(Math.round(Number(cfg.gameplay.are) || 0), 0, 600);
+    cfg.gameplay.lineAre = clamp(Math.round(Number(cfg.gameplay.lineAre) || 0), 0, 600);
+    cfg.gameplay.customLines = clamp(Math.round(Number(cfg.gameplay.customLines) || 0), 0, 9999);
+    cfg.gameplay.ghost = Boolean(cfg.gameplay.ghost);
+    cfg.gameplay.holdEnabled = Boolean(cfg.gameplay.holdEnabled);
+    cfg.gameplay.allow180 = Boolean(cfg.gameplay.allow180);
+
+    for (const key of ['boardZoom', 'gridOpacity', 'ghostOpacity', 'bounce', 'particles', 'volume']) {
+      cfg.visual[key] = clamp(Number(cfg.visual[key]) || 0, key === 'boardZoom' ? 60 : 0, key === 'boardZoom' ? 140 : 100);
+    }
+    cfg.visual.coloredGhost = Boolean(cfg.visual.coloredGhost);
+    cfg.visual.hardDropTrail = Boolean(cfg.visual.hardDropTrail);
+    cfg.visual.reducedMotion = Boolean(cfg.visual.reducedMotion);
+    if (!['sprint', 'zen', 'custom'].includes(cfg.ui.mode)) cfg.ui.mode = 'sprint';
+    cfg.ui.proMode = Boolean(cfg.ui.proMode);
+    cfg.ui.finesseAlert = Boolean(cfg.ui.finesseAlert);
+    cfg.ui.retryOnFinesse = Boolean(cfg.ui.retryOnFinesse);
+    cfg.ui.strideMode = Boolean(cfg.ui.strideMode);
+    cfg.ui.audioEnabled = Boolean(cfg.ui.audioEnabled);
+    return cfg;
+  };
+
+  const loadJSON = (key, fallback) => {
+    try {
+      const raw = localStorage.getItem(key);
+      return raw ? JSON.parse(raw) : fallback;
+    } catch (_) {
+      return fallback;
+    }
+  };
+
+  let config = sanitizeConfig(loadJSON(STORAGE_CONFIG, null));
+  let personalBests = loadJSON(STORAGE_PB, { sprint: null });
+
+  const saveConfig = () => {
+    try {
+      localStorage.setItem(STORAGE_CONFIG, JSON.stringify(config));
+      const label = $('settingsSaveState');
+      if (label) {
+        label.textContent = 'SETTINGS SAVED LOCALLY';
+        label.dataset.dirty = 'false';
+      }
+    } catch (_) {
+      toast('설정을 저장하지 못했습니다.', 'danger');
+    }
+  };
+
+  let saveTimer = 0;
+  const scheduleSave = () => {
+    const label = $('settingsSaveState');
+    if (label) {
+      label.textContent = 'SAVING…';
+      label.dataset.dirty = 'true';
+    }
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(saveConfig, 120);
+  };
+
+  class XorShift32 {
+    constructor(seed) {
+      this.state = (seed >>> 0) || 0x6d2b79f5;
+    }
+    nextUint() {
+      let x = this.state;
+      x ^= x << 13;
+      x ^= x >>> 17;
+      x ^= x << 5;
+      this.state = x >>> 0;
+      return this.state;
+    }
+    next() {
+      return this.nextUint() / 0x100000000;
+    }
+    shuffle(array) {
+      for (let i = array.length - 1; i > 0; i -= 1) {
+        const j = Math.floor(this.next() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+      }
+      return array;
+    }
+  }
+
+  class PieceRandomizer {
+    constructor(seed, type, avoidFirst = false) {
+      this.rng = new XorShift32(seed);
+      this.type = type;
+      this.avoidFirst = avoidFirst;
+      this.queue = [];
+      this.firstBag = true;
+    }
+    refill() {
+      if (this.type === 'bag14') {
+        this.queue.push(...this.rng.shuffle([...PIECES, ...PIECES]));
+      } else {
+        const bag = this.rng.shuffle([...PIECES]);
+        if ((this.type === 'calm' || this.avoidFirst) && this.firstBag && ['S', 'Z', 'O'].includes(bag[0])) {
+          const index = bag.findIndex((p) => ['I', 'J', 'L', 'T'].includes(p));
+          [bag[0], bag[index]] = [bag[index], bag[0]];
+        }
+        this.queue.push(...bag);
+      }
+      this.firstBag = false;
+    }
+    ensure(count) {
+      while (this.queue.length < count) this.refill();
+    }
+    next() {
+      this.ensure(1);
+      return this.queue.shift();
+    }
+    peek(count) {
+      this.ensure(count);
+      return this.queue.slice(0, count);
+    }
+  }
+
+  const prettyCode = (code) => {
+    if (!code) return '—';
+    if (code.startsWith('GP:B')) return `PAD ${code.slice(4)}`;
+    const map = {
+      ArrowLeft: '←', ArrowRight: '→', ArrowUp: '↑', ArrowDown: '↓',
+      Space: 'SPACE', Escape: 'ESC', ControlLeft: 'LCTRL', ControlRight: 'RCTRL',
+      ShiftLeft: 'LSHIFT', ShiftRight: 'RSHIFT', Backspace: 'BACKSPACE', Delete: 'DELETE',
+      Numpad0: 'NUM 0', Numpad1: 'NUM 1', Numpad2: 'NUM 2', Numpad3: 'NUM 3',
+      Numpad4: 'NUM 4', Numpad5: 'NUM 5', Numpad6: 'NUM 6', Numpad7: 'NUM 7',
+      Numpad8: 'NUM 8', Numpad9: 'NUM 9', NumpadEnter: 'NUM ENTER',
+      F1: 'F1', F10: 'F10', F11: 'F11',
+    };
+    if (map[code]) return map[code];
+    if (/^Key[A-Z]$/.test(code)) return code.slice(3);
+    if (/^Digit\d$/.test(code)) return code.slice(5);
+    return code.toUpperCase();
+  };
+
+  class InputManager {
+    constructor() {
+      this.queue = [];
+      this.states = new Map();
+      this.edges = [];
+      this.bindingMap = new Map();
+      this.gamepadState = new Map();
+      this.analogState = { left: false, right: false, down: false };
+      this.latencySamples = [];
+      this.sequence = 0;
+      this.capture = null;
+      this.rebuildBindings();
+      window.addEventListener('keydown', (event) => this.onKeyDown(event), { capture: true });
+      window.addEventListener('keyup', (event) => this.onKeyUp(event), { capture: true });
+      window.addEventListener('blur', () => this.releaseAll());
+    }
+    state(action) {
+      if (!this.states.has(action)) this.states.set(action, { down: false, lastPressed: -Infinity });
+      return this.states.get(action);
+    }
+    rebuildBindings() {
+      this.bindingMap.clear();
+      const addBinding = (code, action) => {
+        if (!code || code.startsWith('GP:')) return;
+        if (!this.bindingMap.has(code)) this.bindingMap.set(code, []);
+        if (!this.bindingMap.get(code).includes(action)) this.bindingMap.get(code).push(action);
+      };
+      for (const [action, slots] of Object.entries(config.controls.bindings)) {
+        for (const code of slots) addBinding(code, action);
+      }
+      const aliases = PRESET_ALIASES[config.controls.preset] || {};
+      for (const [action, codes] of Object.entries(aliases)) {
+        for (const code of codes) addBinding(code, action);
+      }
+    }
+    shouldPrevent(code) {
+      return this.bindingMap.has(code) || ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Space', 'F10', 'F11'].includes(code);
+    }
+    onKeyDown(event) {
+      const panelOpen = !$('settingsPanel')?.classList.contains('is-hidden');
+      if (panelOpen && (event.code === 'Escape' || event.code === 'F10')) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        closeSettings();
+        return;
+      }
+      if (this.capture) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        if (event.code === 'Escape') this.finishCapture(null, false);
+        else if (event.code === 'Backspace' || event.code === 'Delete') this.finishCapture('', true);
+        else this.finishCapture(event.code, true);
+        return;
+      }
+      if (this.shouldPrevent(event.code)) event.preventDefault();
+      const actions = this.bindingMap.get(event.code) || [];
+      if (!event.repeat && actions.length) {
+        try { audio.ensure(); } catch (_) {}
+      }
+      if (!event.repeat && actions.includes('fullscreen')) {
+        toggleFullscreen();
+      }
+      for (const action of actions) {
+        if (action === 'fullscreen' && !event.repeat) continue;
+        if (event.repeat) {
+          if (action === 'hardDrop' && !config.handling.hardDropSafety) {
+            this.enqueue(action, 'pulse', event.timeStamp || performance.now(), 'keyboard');
+          }
+          continue;
+        }
+        this.enqueue(action, 'down', event.timeStamp || performance.now(), 'keyboard');
+      }
+    }
+    onKeyUp(event) {
+      if (this.capture) return;
+      if (this.shouldPrevent(event.code)) event.preventDefault();
+      const actions = this.bindingMap.get(event.code) || [];
+      for (const action of actions) this.enqueue(action, 'up', event.timeStamp || performance.now(), 'keyboard');
+    }
+    enqueue(action, type, at = performance.now(), source = 'virtual') {
+      this.queue.push({ action, type, at, source, seq: this.sequence += 1 });
+    }
+    inject(action, type) {
+      this.enqueue(action, type, performance.now(), 'replay');
+    }
+    beginTick(frame) {
+      this.edges.length = 0;
+      const now = performance.now();
+      const events = this.queue.splice(0).sort((a, b) => a.seq - b.seq);
+      for (const event of events) {
+        const state = this.state(event.action);
+        if (event.type === 'pulse') {
+          this.edges.push({ ...event, type: 'down', pulse: true });
+        } else if (event.type === 'down') {
+          if (state.down) continue;
+          state.down = true;
+          state.lastPressed = frame;
+          this.edges.push(event);
+        } else if (event.type === 'up') {
+          if (!state.down) continue;
+          state.down = false;
+          this.edges.push(event);
+        }
+        if (event.source === 'keyboard' || event.source === 'gamepad') {
+          const latency = clamp(now - event.at, 0, 100);
+          this.latencySamples.push(latency);
+          if (this.latencySamples.length > 60) this.latencySamples.shift();
+        }
+      }
+    }
+    isDown(action) {
+      return this.state(action).down;
+    }
+    lastPressed(action) {
+      return this.state(action).lastPressed;
+    }
+    avgLatency() {
+      if (!this.latencySamples.length) return 0;
+      return this.latencySamples.reduce((a, b) => a + b, 0) / this.latencySamples.length;
+    }
+    hardReset() {
+      this.queue.length = 0;
+      this.edges.length = 0;
+      for (const state of this.states.values()) { state.down = false; state.lastPressed = -Infinity; }
+      this.gamepadState.clear();
+      this.analogState = { left: false, right: false, down: false };
+    }
+    releaseAll() {
+      for (const [action, state] of this.states) {
+        if (state.down) this.enqueue(action, 'up', performance.now(), 'system');
+      }
+      this.gamepadState.clear();
+      this.analogState = { left: false, right: false, down: false };
+    }
+    pollGamepads() {
+      const pads = navigator.getGamepads ? navigator.getGamepads() : [];
+      const threshold = config.controls.gamepadSensitivity / 100;
+      for (const pad of pads) {
+        if (!pad) continue;
+        for (let index = 0; index < pad.buttons.length; index += 1) {
+          const token = `GP:B${index}`;
+          const key = `${pad.index}:${index}`;
+          const down = Boolean(pad.buttons[index].pressed);
+          const previous = this.gamepadState.get(key) || false;
+          if (down !== previous) {
+            this.gamepadState.set(key, down);
+            if (this.capture && down) {
+              this.finishCapture(token, true);
+              return;
+            }
+            for (const [action, slots] of Object.entries(config.controls.bindings)) {
+              if (slots.includes(token)) this.enqueue(action, down ? 'down' : 'up', performance.now(), 'gamepad');
+            }
+          }
+        }
+        const x = pad.axes[0] || 0;
+        const y = pad.axes[1] || 0;
+        this.updateAnalog('left', x < -threshold, 'moveLeft');
+        this.updateAnalog('right', x > threshold, 'moveRight');
+        this.updateAnalog('down', y > threshold, 'softDrop');
+        break;
+      }
+    }
+    updateAnalog(key, down, action) {
+      if (this.analogState[key] === down) return;
+      this.analogState[key] = down;
+      this.enqueue(action, down ? 'down' : 'up', performance.now(), 'gamepad');
+    }
+    startCapture(action, slot) {
+      this.capture = { action, slot };
+      $('bindingCaptureLabel').textContent = `${ACTION_META.find(([id]) => id === action)?.[1] || action} · SLOT ${slot + 1}`;
+      $('bindingCapture').classList.remove('is-hidden');
+    }
+    finishCapture(code, commit) {
+      const capture = this.capture;
+      if (!capture) return;
+      this.capture = null;
+      $('bindingCapture').classList.add('is-hidden');
+      if (commit) {
+        config.controls.bindings[capture.action][capture.slot] = code;
+        config.controls.preset = 'custom';
+        this.rebuildBindings();
+        renderBindings();
+        updateControlHints();
+        scheduleSave();
+      }
+    }
+  }
+
+  class AudioEngine {
+    constructor() {
+      this.context = null;
+      this.master = null;
+    }
+    ensure() {
+      if (!config.ui.audioEnabled) return false;
+      if (!this.context) {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContext) return false;
+        this.context = new AudioContext();
+        this.master = this.context.createGain();
+        this.master.connect(this.context.destination);
+      }
+      if (this.context.state === 'suspended') this.context.resume().catch(() => {});
+      this.master.gain.value = config.visual.volume / 100 * 0.24;
+      return true;
+    }
+    tone(frequency, duration, type = 'sine', gain = 0.5, slide = 0) {
+      if (!this.ensure()) return;
+      const now = this.context.currentTime;
+      const osc = this.context.createOscillator();
+      const amp = this.context.createGain();
+      osc.type = type;
+      osc.frequency.setValueAtTime(frequency, now);
+      if (slide) osc.frequency.exponentialRampToValueAtTime(Math.max(30, frequency + slide), now + duration);
+      amp.gain.setValueAtTime(0.0001, now);
+      amp.gain.exponentialRampToValueAtTime(Math.max(0.0002, gain), now + 0.008);
+      amp.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+      osc.connect(amp);
+      amp.connect(this.master);
+      osc.start(now);
+      osc.stop(now + duration + 0.02);
+    }
+    noise(duration = 0.08, gain = 0.12, highpass = 500) {
+      if (!this.ensure()) return;
+      const length = Math.floor(this.context.sampleRate * duration);
+      const buffer = this.context.createBuffer(1, length, this.context.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < length; i += 1) data[i] = Math.random() * 2 - 1;
+      const source = this.context.createBufferSource();
+      const filter = this.context.createBiquadFilter();
+      const amp = this.context.createGain();
+      filter.type = 'highpass';
+      filter.frequency.value = highpass;
+      amp.gain.setValueAtTime(gain, this.context.currentTime);
+      amp.gain.exponentialRampToValueAtTime(0.0001, this.context.currentTime + duration);
+      source.buffer = buffer;
+      source.connect(filter);
+      filter.connect(amp);
+      amp.connect(this.master);
+      source.start();
+    }
+    play(name, value = 0) {
+      if (!config.ui.audioEnabled || config.visual.volume <= 0) return;
+      switch (name) {
+        case 'move': this.tone(150, 0.025, 'square', 0.08, 20); break;
+        case 'rotate': this.tone(260, 0.045, 'triangle', 0.12, 100); break;
+        case 'hold': this.tone(210, 0.07, 'sine', 0.18, -55); break;
+        case 'soft': this.tone(95, 0.018, 'square', 0.035); break;
+        case 'drop': this.noise(0.065, 0.15, 350); this.tone(72, 0.08, 'triangle', 0.16, -20); break;
+        case 'lock': this.tone(110, 0.04, 'square', 0.08, -15); break;
+        case 'clear':
+          this.tone(330 + value * 45, 0.11, 'triangle', 0.2, 170);
+          if (value >= 4) this.tone(660, 0.16, 'sine', 0.12, 260);
+          break;
+        case 'tspin': this.tone(390, 0.14, 'sawtooth', 0.15, 340); break;
+        case 'finesse': this.tone(115, 0.11, 'square', 0.11, -45); break;
+        case 'start': this.tone(520, 0.12, 'triangle', 0.2, 300); break;
+        case 'count': this.tone(310, 0.07, 'sine', 0.14, 40); break;
+        case 'complete':
+          this.tone(440, 0.2, 'triangle', 0.18, 220);
+          setTimeout(() => this.tone(660, 0.26, 'triangle', 0.16, 220), 100);
+          break;
+        case 'topout': this.tone(190, 0.35, 'sawtooth', 0.12, -120); break;
+        default: break;
+      }
+    }
+  }
+
+  class Renderer {
+    constructor() {
+      this.canvas = $('boardCanvas');
+      this.ctx = this.canvas.getContext('2d');
+      this.fxCanvas = $('fxCanvas');
+      this.fx = this.fxCanvas.getContext('2d');
+      this.holdCanvas = $('holdCanvas');
+      this.holdCtx = this.holdCanvas.getContext('2d');
+      this.nextCanvases = [...document.querySelectorAll('.next-canvas')];
+      this.nextContexts = this.nextCanvases.map((c) => c.getContext('2d'));
+      this.particles = [];
+      this.trails = [];
+      this.clearFlashes = [];
+      this.blockCache = new Map();
+      this.lastMiniSignature = '';
+      this.lastTime = performance.now();
+    }
+    block(ctx, x, y, size, color, alpha = 1, ghost = false) {
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      if (ghost) {
+        ctx.strokeStyle = color;
+        ctx.lineWidth = Math.max(2, size * 0.075);
+        ctx.strokeRect(x + size * 0.11, y + size * 0.11, size * 0.78, size * 0.78);
+        ctx.fillStyle = color;
+        ctx.globalAlpha = alpha * 0.18;
+        ctx.fillRect(x + size * 0.16, y + size * 0.16, size * 0.68, size * 0.68);
+        ctx.restore();
+        return;
+      }
+      const cacheKey = `${size}:${color}`;
+      let sprite = this.blockCache.get(cacheKey);
+      if (!sprite) {
+        sprite = document.createElement('canvas');
+        sprite.width = Math.ceil(size);
+        sprite.height = Math.ceil(size);
+        const spriteCtx = sprite.getContext('2d');
+        const inset = Math.max(1.5, size * 0.035);
+        const gradient = spriteCtx.createLinearGradient(0, 0, 0, size);
+        gradient.addColorStop(0, this.mix(color, '#ffffff', 0.24));
+        gradient.addColorStop(0.18, color);
+        gradient.addColorStop(1, this.mix(color, '#05070c', 0.24));
+        spriteCtx.fillStyle = gradient;
+        spriteCtx.fillRect(inset, inset, size - inset * 2, size - inset * 2);
+        spriteCtx.fillStyle = 'rgba(255,255,255,.23)';
+        spriteCtx.fillRect(inset * 1.7, inset * 1.7, size - inset * 3.4, Math.max(2, size * 0.055));
+        spriteCtx.fillStyle = 'rgba(0,0,0,.18)';
+        spriteCtx.fillRect(inset * 1.7, size - inset * 2.8, size - inset * 3.4, Math.max(2, size * 0.06));
+        spriteCtx.strokeStyle = 'rgba(255,255,255,.11)';
+        spriteCtx.lineWidth = Math.max(1, size * 0.02);
+        spriteCtx.strokeRect(inset, inset, size - inset * 2, size - inset * 2);
+        this.blockCache.set(cacheKey, sprite);
+      }
+      ctx.drawImage(sprite, x, y, size, size);
+      ctx.restore();
+    }
+    mix(a, b, amount) {
+      const pa = this.hex(a);
+      const pb = this.hex(b);
+      const c = pa.map((v, i) => Math.round(v + (pb[i] - v) * amount));
+      return `rgb(${c[0]},${c[1]},${c[2]})`;
+    }
+    hex(value) {
+      const raw = value.replace('#', '');
+      return [0, 2, 4].map((i) => parseInt(raw.slice(i, i + 2), 16));
+    }
+    draw(game) {
+      const ctx = this.ctx;
+      ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+      ctx.fillStyle = '#050810';
+      ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+      const gridAlpha = config.visual.gridOpacity / 100;
+      if (gridAlpha > 0) {
+        ctx.save();
+        ctx.globalAlpha = gridAlpha * 0.55;
+        ctx.strokeStyle = '#637088';
+        ctx.lineWidth = 1;
+        for (let x = 1; x < BOARD_W; x += 1) {
+          ctx.beginPath(); ctx.moveTo(x * CELL + 0.5, 0); ctx.lineTo(x * CELL + 0.5, VISIBLE_H * CELL); ctx.stroke();
+        }
+        for (let y = 1; y < VISIBLE_H; y += 1) {
+          ctx.beginPath(); ctx.moveTo(0, y * CELL + 0.5); ctx.lineTo(BOARD_W * CELL, y * CELL + 0.5); ctx.stroke();
+        }
+        ctx.restore();
+      }
+
+      if (game.board) {
+        for (let y = VISIBLE_START; y < BOARD_H; y += 1) {
+          for (let x = 0; x < BOARD_W; x += 1) {
+            const type = game.board[y][x];
+            if (type) this.block(ctx, x * CELL, (y - VISIBLE_START) * CELL, CELL, PIECE_COLORS[type]);
+          }
+        }
+      }
+
+      if (game.current) {
+        if (config.gameplay.ghost) {
+          const ghostY = game.ghostY();
+          if (ghostY !== game.current.y) {
+            const ghostColor = config.visual.coloredGhost ? PIECE_COLORS[game.current.type] : '#9aa5b8';
+            const alpha = config.visual.ghostOpacity / 100;
+            for (const [dx, dy] of SHAPES[game.current.type][game.current.rot]) {
+              const y = ghostY + dy;
+              if (y >= VISIBLE_START) this.block(ctx, (game.current.x + dx) * CELL, (y - VISIBLE_START) * CELL, CELL, ghostColor, alpha, true);
+            }
+          }
+        }
+        for (const [dx, dy] of SHAPES[game.current.type][game.current.rot]) {
+          const y = game.current.y + dy;
+          if (y >= VISIBLE_START) this.block(ctx, (game.current.x + dx) * CELL, (y - VISIBLE_START) * CELL, CELL, PIECE_COLORS[game.current.type]);
+        }
+      }
+
+      this.drawFlashes();
+      const next = game.randomizer ? game.randomizer.peek(5) : [];
+      const miniSignature = `${game.holdType || '-'}|${next.join('')}`;
+      if (miniSignature !== this.lastMiniSignature) {
+        this.lastMiniSignature = miniSignature;
+        this.drawMini(this.holdCtx, this.holdCanvas, game.holdType, 30);
+        this.nextContexts.forEach((miniCtx, index) => this.drawMini(miniCtx, this.nextCanvases[index], next[index], index === 0 ? 28 : 24));
+      }
+      this.updateDanger(game);
+    }
+    drawMini(ctx, canvas, type, blockSize) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      if (!type) return;
+      const cells = SHAPES[type][0];
+      const xs = cells.map(([x]) => x);
+      const ys = cells.map(([, y]) => y);
+      const minX = Math.min(...xs); const maxX = Math.max(...xs);
+      const minY = Math.min(...ys); const maxY = Math.max(...ys);
+      const width = (maxX - minX + 1) * blockSize;
+      const height = (maxY - minY + 1) * blockSize;
+      const originX = (canvas.width - width) / 2 - minX * blockSize;
+      const originY = (canvas.height - height) / 2 - minY * blockSize;
+      for (const [x, y] of cells) this.block(ctx, originX + x * blockSize, originY + y * blockSize, blockSize, PIECE_COLORS[type]);
+    }
+    updateDanger(game) {
+      let top = BOARD_H;
+      if (game.board) {
+        for (let y = VISIBLE_START; y < BOARD_H; y += 1) {
+          if (game.board[y].some(Boolean)) { top = y; break; }
+        }
+      }
+      const danger = top <= VISIBLE_START + 5;
+      $('boardRig').classList.toggle('is-danger', danger);
+    }
+    bounce(clear = false) {
+      if (config.visual.reducedMotion || config.visual.bounce <= 0) return;
+      const rig = $('boardRig');
+      const cls = clear ? 'is-clearing' : 'is-bouncing';
+      rig.classList.remove('is-bouncing', 'is-clearing');
+      void rig.offsetWidth;
+      rig.style.setProperty('--bounce-strength', `${config.visual.bounce / 100}`);
+      rig.classList.add(cls);
+      setTimeout(() => rig.classList.remove(cls), clear ? 190 : 150);
+    }
+    addHardDrop(piece, fromY, toY) {
+      if (!config.visual.hardDropTrail || config.visual.reducedMotion || fromY === toY) return;
+      this.trails.push({ piece: deepClone(piece), fromY, toY, life: 1, maxLife: 1 });
+      const count = Math.round(config.visual.particles / 100 * 8);
+      const cells = SHAPES[piece.type][piece.rot];
+      for (let i = 0; i < count; i += 1) {
+        const [dx, dy] = cells[i % cells.length];
+        const x = (piece.x + dx + 0.5) * CELL;
+        const y = (toY + dy - VISIBLE_START + 0.9) * CELL;
+        this.addParticle(x, y, PIECE_COLORS[piece.type], (Math.random() - 0.5) * 150, -40 - Math.random() * 130, 0.28 + Math.random() * 0.2, 5 + Math.random() * 8);
+      }
+    }
+    addLineClear(rows, color = '#ffffff') {
+      const now = performance.now();
+      for (const row of rows) this.clearFlashes.push({ row, born: now, life: 260 });
+      if (config.visual.reducedMotion) return;
+      const count = Math.round(config.visual.particles / 100 * 34 * Math.max(1, rows.length));
+      for (let i = 0; i < count; i += 1) {
+        const row = rows[i % rows.length];
+        const x = Math.random() * BOARD_W * CELL;
+        const y = (row - VISIBLE_START + 0.5) * CELL;
+        this.addParticle(x, y, color, (Math.random() - 0.5) * 350, (Math.random() - 0.7) * 260, 0.35 + Math.random() * 0.45, 4 + Math.random() * 12);
+      }
+    }
+    addParticle(x, y, color, vx, vy, life, size) {
+      this.particles.push({ x, y, color, vx, vy, life, maxLife: life, size });
+      if (this.particles.length > 400) this.particles.splice(0, this.particles.length - 400);
+    }
+    drawFlashes() {
+      const now = performance.now();
+      for (let i = this.clearFlashes.length - 1; i >= 0; i -= 1) {
+        const flash = this.clearFlashes[i];
+        const age = now - flash.born;
+        if (age >= flash.life) {
+          this.clearFlashes.splice(i, 1);
+          continue;
+        }
+        const alpha = 1 - age / flash.life;
+        const y = (flash.row - VISIBLE_START) * CELL;
+        if (y < 0 || y >= VISIBLE_H * CELL) continue;
+        this.ctx.save();
+        this.ctx.globalAlpha = alpha * 0.65;
+        const g = this.ctx.createLinearGradient(0, 0, BOARD_W * CELL, 0);
+        g.addColorStop(0, 'rgba(255,255,255,0)');
+        g.addColorStop(0.5, 'rgba(255,255,255,1)');
+        g.addColorStop(1, 'rgba(255,255,255,0)');
+        this.ctx.fillStyle = g;
+        this.ctx.fillRect(0, y, BOARD_W * CELL, CELL);
+        this.ctx.restore();
+      }
+    }
+    drawEffects(now) {
+      const dt = clamp((now - this.lastTime) / 1000, 0, 0.05);
+      this.lastTime = now;
+      const fx = this.fx;
+      fx.clearRect(0, 0, this.fxCanvas.width, this.fxCanvas.height);
+      for (let i = this.trails.length - 1; i >= 0; i -= 1) {
+        const trail = this.trails[i];
+        trail.life -= dt * 5.8;
+        if (trail.life <= 0) { this.trails.splice(i, 1); continue; }
+        const alpha = (trail.life / trail.maxLife) * 0.18;
+        const color = PIECE_COLORS[trail.piece.type];
+        for (const [dx, dy] of SHAPES[trail.piece.type][trail.piece.rot]) {
+          const x = (trail.piece.x + dx) * CELL + CELL * 0.32;
+          const y1 = (trail.fromY + dy - VISIBLE_START) * CELL;
+          const y2 = (trail.toY + dy - VISIBLE_START) * CELL;
+          if (y2 < 0) continue;
+          const top = Math.max(0, y1);
+          const bottom = Math.min(VISIBLE_H * CELL, y2 + CELL);
+          const g = fx.createLinearGradient(0, top, 0, bottom);
+          g.addColorStop(0, 'rgba(255,255,255,0)');
+          g.addColorStop(1, color);
+          fx.save();
+          fx.globalAlpha = alpha;
+          fx.fillStyle = g;
+          fx.fillRect(x, top, CELL * 0.36, Math.max(0, bottom - top));
+          fx.restore();
+        }
+      }
+      for (let i = this.particles.length - 1; i >= 0; i -= 1) {
+        const p = this.particles[i];
+        p.life -= dt;
+        if (p.life <= 0) { this.particles.splice(i, 1); continue; }
+        p.vy += 430 * dt;
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+        fx.save();
+        fx.globalAlpha = (p.life / p.maxLife) ** 1.6;
+        fx.fillStyle = p.color;
+        fx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size);
+        fx.restore();
+      }
+    }
+  }
+
+  const makeBoard = () => Array.from({ length: BOARD_H }, () => Array(BOARD_W).fill(null));
+
+  class GameEngine {
+    constructor(input, renderer, audio) {
+      this.input = input;
+      this.renderer = renderer;
+      this.audio = audio;
+      this.mode = config.ui.mode;
+      this.state = 'idle';
+      this.seed = 0;
+      this.board = makeBoard();
+      this.randomizer = null;
+      this.current = null;
+      this.holdType = null;
+      this.canHold = true;
+      this.runFrame = 0;
+      this.playFrame = 0;
+      this.countdownFrames = 0;
+      this.countdownStyle = 'normal';
+      this.areRemaining = 0;
+      this.gravityAccumulator = 0;
+      this.lockTimer = 0;
+      this.lockResetsUsed = 0;
+      this.lines = 0;
+      this.score = 0;
+      this.attack = 0;
+      this.pieces = 0;
+      this.inputs = 0;
+      this.finesseFaults = 0;
+      this.combo = -1;
+      this.b2b = 0;
+      this.lastAction = null;
+      this.lastRotation = null;
+      this.pieceManipulations = 0;
+      this.bufferTap = { hold: false, rotation: null };
+      this.horizontal = {
+        leftCharge: 0,
+        rightCharge: 0,
+        repeat: 0,
+        activeDir: 0,
+        dcd: 0,
+      };
+      this.replay = null;
+      this.replayMode = false;
+      this.replayCursor = 0;
+      this.lastReplay = null;
+      this.result = null;
+      this.settingsPaused = false;
+      this.handlingTest = false;
+      this.actionTextTimer = 0;
+      this.retryHoldFrames = 0;
+      this.retryArmed = false;
+      this.updateModeUI();
+      this.setState('idle');
+    }
+    setState(state) {
+      this.state = state;
+      $('app').dataset.state = state;
+      $('countdownOverlay').classList.toggle('is-hidden', state !== 'countdown');
+      $('pauseOverlay').classList.toggle('is-hidden', state !== 'paused');
+      $('resultOverlay').classList.toggle('is-hidden', state !== 'over');
+      const status = state === 'playing' ? 'RUNNING' : state === 'paused' ? 'PAUSED' : state === 'countdown' ? 'GET READY' : state === 'over' ? 'RUN COMPLETE' : 'READY';
+      $('statusText').textContent = status;
+    }
+    setCountdownText(text) {
+      const element = $('countdownValue');
+      if (element.textContent === text) return;
+      element.textContent = text;
+      element.style.animation = 'none';
+      void element.offsetWidth;
+      element.style.animation = '';
+    }
+    updateModeUI() {
+      const modeInfo = {
+        sprint: ['SOLO / 40 LINES', '40 LINES', '40줄을 가능한 한 빠르게 제거하세요.', 'LINES LEFT'],
+        zen: ['SOLO / ZEN', 'ZEN', '종료 조건 없이 쌓기와 핸들링을 연습하세요.', 'LINES'],
+        custom: ['SOLO / CUSTOM', 'CUSTOM', '설정한 목표 줄 수 또는 무한 모드로 연습하세요.', 'LINES LEFT'],
+      }[this.mode];
+      $('modeKicker').textContent = modeInfo[0];
+      $('modeTitle').textContent = modeInfo[1];
+      $('modeDescription').textContent = modeInfo[2];
+      $('objectiveLabel').textContent = modeInfo[3];
+      const strideToggle = $('strideModeToggle');
+      if (strideToggle) {
+        strideToggle.disabled = this.mode === 'zen';
+        strideToggle.closest('label')?.classList.toggle('is-disabled', this.mode === 'zen');
+        strideToggle.closest('label')?.setAttribute('title', this.mode === 'zen' ? 'Stride Mode는 ZEN에서 적용되지 않습니다.' : 'READY–SET–GO 시작 시퀀스를 사용합니다.');
+      }
+      const finesseRetryToggle = $('finesseRetryToggle');
+      if (finesseRetryToggle) {
+        finesseRetryToggle.disabled = this.mode === 'zen';
+        finesseRetryToggle.closest('label')?.classList.toggle('is-disabled', this.mode === 'zen');
+        finesseRetryToggle.closest('label')?.setAttribute('title', this.mode === 'zen' ? '자동 재시작은 ZEN에서 적용되지 않습니다.' : 'Finesse fault가 감지되면 같은 시드로 다시 시작합니다.');
+      }
+      document.querySelectorAll('.mode-tab').forEach((button) => button.classList.toggle('is-active', button.dataset.mode === this.mode));
+      this.updatePB();
+      this.updateHUD();
+    }
+    updatePB() {
+      if (this.mode === 'sprint' && personalBests.sprint) $('pbValue').textContent = formatTime(personalBests.sprint);
+      else $('pbValue').textContent = '—';
+    }
+    newSeed() {
+      if (window.crypto?.getRandomValues) {
+        const value = new Uint32Array(1);
+        window.crypto.getRandomValues(value);
+        return value[0] || 1;
+      }
+      return (Date.now() ^ Math.floor(Math.random() * 0xffffffff)) >>> 0;
+    }
+    start(options = {}) {
+      const seed = options.seed ?? (options.sameSeed && this.seed ? this.seed : this.newSeed());
+      this.mode = options.mode || this.mode || config.ui.mode;
+      config.ui.mode = this.mode;
+      scheduleSave();
+      this.seed = seed >>> 0;
+      const strideActive = Boolean(config.ui.strideMode && this.mode !== 'zen' && !options.skipCountdown);
+      const avoidFirstPiece = Boolean(strideActive && this.mode !== 'custom');
+      this.board = makeBoard();
+      this.randomizer = new PieceRandomizer(this.seed, config.gameplay.randomizer, avoidFirstPiece);
+      this.randomizer.ensure(7);
+      this.current = null;
+      this.holdType = null;
+      this.canHold = true;
+      this.runFrame = 0;
+      this.playFrame = 0;
+      this.countdownStyle = options.skipCountdown ? 'skip' : strideActive ? 'stride' : 'normal';
+      this.countdownFrames = this.countdownStyle === 'skip' ? 1 : this.countdownStyle === 'stride' ? 90 : 180;
+      this.areRemaining = 0;
+      this.gravityAccumulator = 0;
+      this.lockTimer = 0;
+      this.lockResetsUsed = 0;
+      this.lines = 0;
+      this.score = 0;
+      this.attack = 0;
+      this.pieces = 0;
+      this.inputs = 0;
+      this.finesseFaults = 0;
+      this.combo = -1;
+      this.b2b = 0;
+      this.lastAction = null;
+      this.lastRotation = null;
+      this.pieceManipulations = 0;
+      this.bufferTap = { hold: false, rotation: null };
+      this.horizontal = { leftCharge: 0, rightCharge: 0, repeat: 0, activeDir: 0, dcd: 0 };
+      this.retryHoldFrames = 0;
+      this.retryArmed = false;
+      this.result = null;
+      this.replayMode = Boolean(options.replay);
+      if (this.replayMode) this.input.hardReset();
+      this.replay = options.replay || {
+        format: 'stacklab-replay',
+        version: VERSION,
+        createdAt: new Date().toISOString(),
+        seed: this.seed,
+        mode: this.mode,
+        config: this.replayConfigSnapshot(),
+        events: [],
+      };
+      this.replayCursor = 0;
+      this.handlingTest = Boolean(options.handlingTest);
+      this.updateModeUI();
+      $('seedValue').textContent = this.seed.toString(16).toUpperCase().padStart(8, '0');
+      $('resultOverlay').classList.add('is-hidden');
+      $('startOverlay').classList.add('is-hidden');
+      $('countdownOverlay').dataset.style = this.countdownStyle;
+      this.setState('countdown');
+      this.setCountdownText(this.countdownStyle === 'stride' ? 'READY' : this.countdownFrames <= 1 ? 'GO' : '3');
+      $('countdownSub').textContent = options.retryReason || (this.replayMode ? 'REPLAY' : this.handlingTest ? 'HANDLING TEST' : 'GET READY');
+      this.audio.ensure();
+      this.updateHUD();
+    }
+    replayConfigSnapshot() {
+      return {
+        handling: deepClone(config.handling),
+        gameplay: deepClone(config.gameplay),
+        ui: { strideMode: config.ui.strideMode, retryOnFinesse: config.ui.retryOnFinesse },
+      };
+    }
+    injectReplayEvents() {
+      if (!this.replayMode || !this.replay?.events) return;
+      while (this.replayCursor < this.replay.events.length && this.replay.events[this.replayCursor].frame === this.runFrame) {
+        const event = this.replay.events[this.replayCursor];
+        this.input.inject(event.action, event.type);
+        this.replayCursor += 1;
+      }
+    }
+    recordEdges() {
+      if (this.replayMode || !this.replay || !['countdown', 'playing'].includes(this.state)) return;
+      for (const event of this.input.edges) {
+        if (event.source === 'replay' || ['pause', 'config', 'fullscreen', 'retry'].includes(event.action)) continue;
+        this.replay.events.push({ frame: this.runFrame, action: event.action, type: event.type === 'pulse' ? 'down' : event.type });
+        if (event.pulse) this.replay.events.push({ frame: this.runFrame, action: event.action, type: 'up' });
+      }
+    }
+    fixedUpdate() {
+      this.injectReplayEvents();
+      this.input.beginTick(this.runFrame);
+      this.recordEdges();
+      this.handleGlobalEdges();
+      if (this.processRetryHold()) return;
+
+      if (this.state === 'countdown') {
+        this.processBuffers();
+        this.processHorizontal();
+        this.countdownFrames -= 1;
+        this.runFrame += 1;
+        if (this.countdownFrames > 0) {
+          const previous = $('countdownValue').textContent;
+          let text;
+          if (this.countdownStyle === 'stride') {
+            text = this.countdownFrames > 60 ? 'READY' : this.countdownFrames > 30 ? 'SET' : 'GO';
+          } else if (this.countdownStyle === 'skip') {
+            text = 'GO';
+          } else {
+            const number = Math.ceil(this.countdownFrames / 60);
+            text = number <= 0 ? 'GO' : String(number);
+          }
+          if (previous !== text) {
+            this.setCountdownText(text);
+            this.audio.play('count');
+          }
+        } else {
+          this.spawnNext(true);
+          if (this.state !== 'over') {
+            this.setState('playing');
+            this.audio.play('start');
+            this.showAction('GO', 'accent');
+          }
+        }
+        this.updateHUD();
+        return;
+      }
+
+      if (this.state !== 'playing') {
+        this.updateHUD();
+        return;
+      }
+
+      this.processPlayingEdges();
+      if (this.state !== 'playing') return;
+
+      const verticalFirst = config.handling.softDropPriority;
+      if (verticalFirst) this.processVertical();
+      this.processHorizontal();
+      if (!verticalFirst) this.processVertical();
+      this.processLock();
+
+      this.playFrame += 1;
+      this.runFrame += 1;
+      if (this.actionTextTimer > 0) {
+        this.actionTextTimer -= 1;
+        if (this.actionTextTimer <= 0) $('actionText').classList.remove('is-visible');
+      }
+      this.updateHUD();
+    }
+    resetToIdle() {
+      this.board = makeBoard();
+      this.randomizer = null;
+      this.current = null;
+      this.holdType = null;
+      this.canHold = true;
+      this.seed = 0;
+      this.runFrame = 0;
+      this.playFrame = 0;
+      this.countdownFrames = 0;
+      this.areRemaining = 0;
+      this.gravityAccumulator = 0;
+      this.lockTimer = 0;
+      this.lockResetsUsed = 0;
+      this.lines = 0;
+      this.score = 0;
+      this.attack = 0;
+      this.pieces = 0;
+      this.inputs = 0;
+      this.finesseFaults = 0;
+      this.combo = -1;
+      this.b2b = 0;
+      this.lastAction = null;
+      this.lastRotation = null;
+      this.pieceManipulations = 0;
+      this.bufferTap = { hold: false, rotation: null };
+      this.horizontal = { leftCharge: 0, rightCharge: 0, repeat: 0, activeDir: 0, dcd: 0 };
+      this.result = null;
+      this.replayMode = false;
+      this.replayCursor = 0;
+      this.handlingTest = false;
+      this.retryHoldFrames = 0;
+      this.retryArmed = false;
+      this.input.hardReset();
+      this.setState('idle');
+      $('countdownOverlay').dataset.style = 'normal';
+      $('seedValue').textContent = '—';
+      $('resultOverlay').classList.add('is-hidden');
+      $('startOverlay').classList.remove('is-hidden');
+      this.renderer.lastMiniSignature = '';
+      this.updateHUD();
+    }
+    handleGlobalEdges() {
+      for (const edge of this.input.edges) {
+        if (edge.type !== 'down') continue;
+        if (edge.action === 'fullscreen') toggleFullscreen();
+        if (edge.action === 'config') {
+          openSettings('handling');
+          continue;
+        }
+        if (edge.action === 'pause') {
+          if (this.state === 'playing') this.pause(false);
+          else if (this.state === 'paused' && !settingsOpen()) this.resume();
+          continue;
+        }
+        if (edge.action === 'retry') {
+          const retriable = ['countdown', 'playing', 'paused', 'over'].includes(this.state);
+          if (retriable && config.ui.strideMode && this.mode !== 'zen') this.start({ sameSeed: true });
+          else if (retriable) {
+            this.retryArmed = true;
+            this.retryHoldFrames = 0;
+            if (this.state === 'over') toast('재시작 키를 잠시 길게 누르세요. Stride Mode에서는 탭으로 재시작합니다.');
+            else this.showAction('HOLD TO RETRY', 'danger');
+          }
+          continue;
+        }
+        if (edge.action === 'hardDrop' && this.state === 'idle') this.start();
+        else if (edge.action === 'hardDrop' && this.state === 'over') this.start({ sameSeed: true });
+      }
+    }
+    processRetryHold() {
+      if (!this.retryArmed) return false;
+      const retriable = ['countdown', 'playing', 'paused', 'over'].includes(this.state);
+      if (!retriable || !this.input.isDown('retry')) {
+        this.retryArmed = false;
+        this.retryHoldFrames = 0;
+        return false;
+      }
+      this.retryHoldFrames += 1;
+      if (this.retryHoldFrames < 30) return false;
+      this.retryArmed = false;
+      this.retryHoldFrames = 0;
+      this.start({ sameSeed: true });
+      return true;
+    }
+    processBuffers() {
+      for (const edge of this.input.edges) {
+        if (this.replayMode && edge.source !== 'replay') continue;
+        if (edge.type !== 'down') continue;
+        if (edge.action === 'hold') this.bufferTap.hold = true;
+        if (['rotateCW', 'rotateCCW', 'rotate180'].includes(edge.action)) this.bufferTap.rotation = edge.action;
+      }
+    }
+    processPlayingEdges() {
+      for (const edge of this.input.edges) {
+        if (this.replayMode && edge.source !== 'replay' && !['pause', 'config', 'fullscreen', 'retry'].includes(edge.action)) continue;
+        if (edge.type === 'up') {
+          if (edge.action === 'moveLeft' && this.horizontal.activeDir === -1 && !this.input.isDown('moveRight')) this.horizontal.activeDir = 0;
+          if (edge.action === 'moveRight' && this.horizontal.activeDir === 1 && !this.input.isDown('moveLeft')) this.horizontal.activeDir = 0;
+          continue;
+        }
+        if (edge.type !== 'down') continue;
+        if (['pause', 'config', 'fullscreen', 'retry'].includes(edge.action)) continue;
+        this.inputs += 1;
+        if (!this.current) {
+          if (edge.action === 'hold') this.bufferTap.hold = true;
+          if (['rotateCW', 'rotateCCW', 'rotate180'].includes(edge.action)) this.bufferTap.rotation = edge.action;
+          continue;
+        }
+        switch (edge.action) {
+          case 'moveLeft':
+            this.pieceManipulations += 1;
+            this.directionPress(-1);
+            this.tryMove(-1, 0, true);
+            break;
+          case 'moveRight':
+            this.pieceManipulations += 1;
+            this.directionPress(1);
+            this.tryMove(1, 0, true);
+            break;
+          case 'softDrop':
+            break;
+          case 'hardDrop':
+            this.hardDrop();
+            break;
+          case 'rotateCW':
+            this.pieceManipulations += 1;
+            this.tryRotate(1, true);
+            break;
+          case 'rotateCCW':
+            this.pieceManipulations += 1;
+            this.tryRotate(-1, true);
+            break;
+          case 'rotate180':
+            if (config.gameplay.allow180) {
+              this.pieceManipulations += 1;
+              this.tryRotate(2, true);
+            }
+            break;
+          case 'hold':
+            this.hold(true);
+            break;
+          default: break;
+        }
+        if (this.state !== 'playing') break;
+      }
+    }
+    directionPress(dir) {
+      if (dir === -1 && config.handling.cancelDas) this.horizontal.rightCharge = 0;
+      if (dir === 1 && config.handling.cancelDas) this.horizontal.leftCharge = 0;
+      this.horizontal.activeDir = dir;
+      this.horizontal.repeat = 0;
+      if (dir === -1) this.horizontal.leftCharge = 0;
+      else this.horizontal.rightCharge = 0;
+    }
+    updateHorizontalCharge(hasPiece = true) {
+      const left = this.input.isDown('moveLeft');
+      const right = this.input.isDown('moveRight');
+      const previousDir = this.horizontal.activeDir;
+      if (!left) this.horizontal.leftCharge = 0;
+      if (!right) this.horizontal.rightCharge = 0;
+      if (this.horizontal.activeDir === -1 && !left) this.horizontal.activeDir = right ? 1 : 0;
+      if (this.horizontal.activeDir === 1 && !right) this.horizontal.activeDir = left ? -1 : 0;
+      if (!this.horizontal.activeDir) {
+        if (left && right) this.horizontal.activeDir = this.input.lastPressed('moveLeft') > this.input.lastPressed('moveRight') ? -1 : 1;
+        else if (left) this.horizontal.activeDir = -1;
+        else if (right) this.horizontal.activeDir = 1;
+      }
+      if (previousDir !== this.horizontal.activeDir) this.horizontal.repeat = 0;
+      if (!this.horizontal.activeDir) this.horizontal.repeat = 0;
+      if (this.horizontal.dcd > 0) {
+        this.horizontal.dcd = Math.max(0, this.horizontal.dcd - 1);
+        return { ready: false, crossed: false, dir: this.horizontal.activeDir };
+      }
+      const dir = this.horizontal.activeDir;
+      if (!dir) return { ready: false, crossed: false, dir: 0 };
+      const key = dir === -1 ? 'leftCharge' : 'rightCharge';
+      const previous = this.horizontal[key];
+      this.horizontal[key] += 1;
+      const ready = this.horizontal[key] >= config.handling.das;
+      const crossed = previous < config.handling.das && ready;
+      if (!hasPiece) return { ready, crossed, dir };
+      return { ready, crossed, dir };
+    }
+    processHorizontal() {
+      const info = this.updateHorizontalCharge(Boolean(this.current));
+      if (!info.ready || !info.dir) return;
+      if (config.handling.arr <= 0) {
+        if (!this.current) return;
+        let moved = false;
+        while (this.tryMove(info.dir, 0, true, false)) moved = true;
+        if (moved) this.audio.play('move');
+        return;
+      }
+      if (info.crossed) this.horizontal.repeat = config.handling.arr;
+      else this.horizontal.repeat += 1;
+      if (!this.current) {
+        this.horizontal.repeat = Math.min(config.handling.arr, this.horizontal.repeat);
+        return;
+      }
+      let moved = false;
+      while (this.horizontal.repeat >= config.handling.arr) {
+        this.horizontal.repeat -= config.handling.arr;
+        if (!this.tryMove(info.dir, 0, true, false)) {
+          this.horizontal.repeat = 0;
+          break;
+        }
+        moved = true;
+      }
+      if (moved) this.audio.play('move');
+    }
+    processVertical() {
+      if (this.areRemaining > 0) {
+        this.areRemaining -= 1;
+        if (this.areRemaining <= 0) this.spawnNext(true);
+        return;
+      }
+      if (!this.current) return;
+      const soft = this.input.isDown('softDrop');
+      if (soft && config.handling.sdfMax) {
+        let distance = 0;
+        while (this.tryMove(0, 1, false)) distance += 1;
+        if (distance > 0) {
+          this.score += distance;
+          this.lastAction = 'softDrop';
+          this.audio.play('soft');
+        }
+        this.gravityAccumulator = 0;
+        return;
+      }
+      let speed = config.gameplay.gravity;
+      if (soft) speed = Math.max(speed, 1 / TICK_RATE) * config.handling.sdf;
+      this.gravityAccumulator += speed;
+      let moved = 0;
+      while (this.gravityAccumulator >= 1 && this.current) {
+        if (this.tryMove(0, 1, false)) {
+          this.gravityAccumulator -= 1;
+          moved += 1;
+        } else {
+          this.gravityAccumulator = 0;
+          break;
+        }
+      }
+      if (soft && moved) {
+        this.score += moved;
+        this.lastAction = 'softDrop';
+      }
+    }
+    processLock() {
+      if (!this.current) return;
+      if (this.collides(this.current, 0, 1, this.current.rot)) {
+        this.lockTimer += 1;
+        if (this.lockTimer >= config.gameplay.lockDelay) this.lockPiece();
+      } else {
+        this.lockTimer = 0;
+      }
+    }
+    cells(piece = this.current, x = piece?.x, y = piece?.y, rot = piece?.rot) {
+      if (!piece) return [];
+      return SHAPES[piece.type][rot].map(([dx, dy]) => [x + dx, y + dy]);
+    }
+    collides(piece, dx = 0, dy = 0, rot = piece.rot) {
+      for (const [sx, sy] of SHAPES[piece.type][rot]) {
+        const x = piece.x + dx + sx;
+        const y = piece.y + dy + sy;
+        if (x < 0 || x >= BOARD_W || y >= BOARD_H) return true;
+        if (y >= 0 && this.board[y][x]) return true;
+      }
+      return false;
+    }
+    tryMove(dx, dy, manual, playAudio = manual) {
+      if (!this.current || this.collides(this.current, dx, dy, this.current.rot)) return false;
+      const wasGrounded = this.collides(this.current, 0, 1, this.current.rot);
+      this.current.x += dx;
+      this.current.y += dy;
+      if (manual && dx) {
+        this.lastAction = 'move';
+        this.lastRotation = null;
+        if (playAudio) this.audio.play('move');
+      }
+      if (manual && wasGrounded) this.resetLockFromManipulation();
+      return true;
+    }
+    resetLockFromManipulation() {
+      if (this.lockResetsUsed < config.gameplay.lockResets) {
+        this.lockTimer = 0;
+        this.lockResetsUsed += 1;
+      }
+    }
+    tryRotate(delta, manual) {
+      if (!this.current) return false;
+      if (this.current.type === 'O') {
+        if (manual) {
+          this.lastAction = 'rotate';
+          this.lastRotation = { delta, kickIndex: 0 };
+          this.setDCD();
+          this.audio.play('rotate');
+        }
+        return true;
+      }
+      const from = this.current.rot;
+      const to = (from + delta + 4) % 4;
+      const table = this.kicks(this.current.type, from, to, delta);
+      const wasGrounded = this.collides(this.current, 0, 1, this.current.rot);
+      for (let index = 0; index < table.length; index += 1) {
+        const [kx, ky] = table[index];
+        if (!this.collides(this.current, kx, ky, to)) {
+          this.current.x += kx;
+          this.current.y += ky;
+          this.current.rot = to;
+          this.lastAction = 'rotate';
+          this.lastRotation = { delta, kickIndex: index };
+          if (manual && wasGrounded) this.resetLockFromManipulation();
+          this.setDCD();
+          this.audio.play('rotate');
+          return true;
+        }
+      }
+      return false;
+    }
+    kicks(type, from, to, delta) {
+      const key = `${from}>${to}`;
+      if (Math.abs(delta) === 2) return (type === 'I' ? I_180 : JLSTZ_180)[key] || [[0, 0]];
+      if (type === 'I') return (config.gameplay.rotation === 'srsplus' ? I_90_SRS_PLUS : I_90_SRS)[key] || [[0, 0]];
+      return JLSTZ_90[key] || [[0, 0]];
+    }
+    setDCD() {
+      const frames = config.handling.dcd > 0 ? config.handling.dcd + 1 : 0;
+      this.horizontal.dcd = Math.max(this.horizontal.dcd, frames);
+      this.horizontal.repeat = 0;
+    }
+    ghostY() {
+      if (!this.current) return 0;
+      let y = this.current.y;
+      while (!this.collides({ ...this.current, y }, 0, 1, this.current.rot)) y += 1;
+      return y;
+    }
+    hardDrop() {
+      if (!this.current) return;
+      const fromY = this.current.y;
+      const toY = this.ghostY();
+      const distance = toY - fromY;
+      this.current.y = toY;
+      this.score += distance * 2;
+      this.lastAction = 'hardDrop';
+      this.renderer.addHardDrop(this.current, fromY, toY);
+      this.setDCD();
+      this.audio.play('drop');
+      this.lockPiece();
+    }
+    hold(manual = false) {
+      if (!this.current || !config.gameplay.holdEnabled || !this.canHold) return false;
+      const outgoing = this.current.type;
+      if (this.holdType) {
+        const incoming = this.holdType;
+        this.holdType = outgoing;
+        this.current = this.createPiece(incoming);
+      } else {
+        this.holdType = outgoing;
+        this.current = this.createPiece(this.randomizer.next());
+      }
+      this.canHold = false;
+      this.gravityAccumulator = 0;
+      this.lockTimer = 0;
+      this.lockResetsUsed = 0;
+      this.lastAction = 'hold';
+      this.lastRotation = null;
+      this.pieceManipulations = 0;
+      if (manual) this.audio.play('hold');
+      if (this.collides(this.current)) {
+        this.topOut();
+        return false;
+      }
+      return true;
+    }
+    createPiece(type) {
+      return { type, x: 3, y: 19, rot: 0 };
+    }
+    spawnNext(applyBuffers = true) {
+      if (!this.randomizer) return;
+      this.current = this.createPiece(this.randomizer.next());
+      this.canHold = true;
+      this.gravityAccumulator = 0;
+      this.lockTimer = 0;
+      this.lockResetsUsed = 0;
+      this.lastAction = 'spawn';
+      this.lastRotation = null;
+      this.pieceManipulations = 0;
+      if (this.collides(this.current)) {
+        this.topOut();
+        return;
+      }
+      if (applyBuffers) this.applySpawnBuffers();
+    }
+    applySpawnBuffers() {
+      const ihsMode = config.handling.ihs;
+      const holdTrigger = ihsMode === 'hold' ? this.input.isDown('hold') : ihsMode === 'tap' ? this.bufferTap.hold : false;
+      if (holdTrigger && config.gameplay.holdEnabled) this.hold(false);
+      if (!this.current || this.state === 'over') return;
+      const irsMode = config.handling.irs;
+      let rotation = null;
+      if (irsMode === 'tap') rotation = this.bufferTap.rotation;
+      else if (irsMode === 'hold') {
+        const candidates = ['rotateCW', 'rotateCCW', 'rotate180'].filter((action) => this.input.isDown(action));
+        candidates.sort((a, b) => this.input.lastPressed(b) - this.input.lastPressed(a));
+        rotation = candidates[0] || null;
+      }
+      if (rotation === 'rotateCW') this.tryRotate(1, false);
+      else if (rotation === 'rotateCCW') this.tryRotate(-1, false);
+      else if (rotation === 'rotate180' && config.gameplay.allow180) this.tryRotate(2, false);
+      if (ihsMode === 'tap') this.bufferTap.hold = false;
+      if (irsMode === 'tap') this.bufferTap.rotation = null;
+    }
+    detectTSpin() {
+      if (!this.current || this.current.type !== 'T' || !this.lastRotation) return { spin: false, mini: false };
+      const cx = this.current.x + 1;
+      const cy = this.current.y + 1;
+      const corners = [[cx - 1, cy - 1], [cx + 1, cy - 1], [cx - 1, cy + 1], [cx + 1, cy + 1]];
+      const occupied = corners.map(([x, y]) => x < 0 || x >= BOARD_W || y >= BOARD_H || y < 0 || Boolean(this.board[y][x]));
+      if (occupied.filter(Boolean).length < 3) return { spin: false, mini: false };
+      const frontByRot = {
+        0: [0, 1],
+        1: [1, 3],
+        2: [2, 3],
+        3: [0, 2],
+      };
+      const front = frontByRot[this.current.rot];
+      const frontCount = front.filter((index) => occupied[index]).length;
+      const mini = frontCount < 2 && (this.lastRotation?.kickIndex ?? 0) < 4;
+      return { spin: true, mini };
+    }
+    lockPiece() {
+      if (!this.current) return;
+      const locked = deepClone(this.current);
+      const tSpin = this.detectTSpin();
+      for (const [x, y] of this.cells()) {
+        if (y >= 0 && y < BOARD_H) this.board[y][x] = this.current.type;
+      }
+      const rows = [];
+      for (let y = 0; y < BOARD_H; y += 1) if (this.board[y].every(Boolean)) rows.push(y);
+      const finesse = this.measureFinesse(locked);
+      if (finesse > 0) {
+        this.finesseFaults += finesse;
+        if (config.ui.finesseAlert) {
+          this.showAction(`FINESSE +${finesse}`, 'danger');
+          this.audio.play('finesse');
+        }
+        if (config.ui.retryOnFinesse && this.mode !== 'zen' && !this.replayMode) {
+          this.start({ sameSeed: true, retryReason: 'FINESSE FAULT · AUTO RETRY' });
+          return;
+        }
+      }
+      this.pieces += 1;
+      this.applyScoring(rows.length, tSpin, this.isPerfectClearAfter(rows));
+      if (rows.length) {
+        this.renderer.addLineClear(rows, PIECE_COLORS[locked.type]);
+        for (let i = rows.length - 1; i >= 0; i -= 1) this.board.splice(rows[i], 1);
+        while (this.board.length < BOARD_H) this.board.unshift(Array(BOARD_W).fill(null));
+        this.lines += rows.length;
+        this.renderer.bounce(true);
+      } else {
+        this.renderer.bounce(false);
+        this.audio.play('lock');
+      }
+      this.current = null;
+      this.gravityAccumulator = 0;
+      this.lockTimer = 0;
+      this.lockResetsUsed = 0;
+
+      if (this.mode === 'sprint' && this.lines >= 40) {
+        this.complete();
+        return;
+      }
+      if (this.mode === 'custom' && config.gameplay.customLines > 0 && this.lines >= config.gameplay.customLines) {
+        this.complete();
+        return;
+      }
+      const delay = rows.length ? config.gameplay.lineAre : config.gameplay.are;
+      if (delay > 0) this.areRemaining = delay;
+      else this.spawnNext(true);
+    }
+    isPerfectClearAfter(rows) {
+      if (!rows.length) return false;
+      const rowSet = new Set(rows);
+      for (let y = 0; y < BOARD_H; y += 1) {
+        if (rowSet.has(y)) continue;
+        if (this.board[y].some(Boolean)) return false;
+      }
+      return true;
+    }
+    applyScoring(lines, tSpin, perfectClear) {
+      let base = 0;
+      let attack = 0;
+      let qualifier = false;
+      let label = '';
+      if (tSpin.spin) {
+        if (tSpin.mini) {
+          base = [100, 200, 400, 0][lines] || 0;
+          attack = [0, 1, 2, 0][lines] || 0;
+          label = lines ? `T-SPIN MINI ${lines === 1 ? 'SINGLE' : 'DOUBLE'}` : 'T-SPIN MINI';
+        } else {
+          base = [400, 800, 1200, 1600][lines] || 0;
+          attack = [0, 2, 4, 6][lines] || 0;
+          label = lines ? `T-SPIN ${['', 'SINGLE', 'DOUBLE', 'TRIPLE'][lines]}` : 'T-SPIN';
+        }
+        qualifier = lines > 0;
+      } else {
+        base = [0, 100, 300, 500, 800][lines] || 0;
+        attack = [0, 0, 1, 2, 4][lines] || 0;
+        label = ['', 'SINGLE', 'DOUBLE', 'TRIPLE', 'QUAD'][lines] || '';
+        qualifier = lines === 4;
+      }
+      if (lines > 0) {
+        this.combo += 1;
+        if (qualifier) {
+          if (this.b2b > 0) {
+            base = Math.round(base * 1.5);
+            attack += 1;
+            label = `B2B ${label}`;
+          }
+          this.b2b += 1;
+        } else {
+          this.b2b = 0;
+        }
+        if (this.combo > 0) {
+          base += 50 * this.combo;
+          attack += Math.min(4, Math.floor((this.combo + 1) / 2));
+        }
+        if (perfectClear) {
+          base += 3500;
+          attack += 10;
+          label = label ? `${label} · PERFECT CLEAR` : 'PERFECT CLEAR';
+        }
+        this.score += base;
+        this.attack += attack;
+        this.showAction(label, tSpin.spin || lines === 4 ? 'accent' : 'normal');
+        this.audio.play(tSpin.spin ? 'tspin' : 'clear', lines);
+      } else {
+        this.combo = -1;
+        if (tSpin.spin) {
+          this.score += base;
+          this.showAction(label, 'accent');
+          this.audio.play('tspin');
+        }
+      }
+    }
+    measureFinesse(piece) {
+      const targetRot = piece.type === 'O' ? 0 : piece.rot;
+      const optimal = this.finesseDistance(piece.type, piece.x, targetRot);
+      if (!Number.isFinite(optimal)) return 0;
+      return Math.max(0, this.pieceManipulations - optimal);
+    }
+    finesseDistance(type, targetX, targetRot) {
+      const widthFor = (rot) => {
+        const xs = SHAPES[type][rot].map(([x]) => x);
+        return [Math.min(...xs), Math.max(...xs)];
+      };
+      const legalX = (x, rot) => {
+        const [min, max] = widthFor(rot);
+        return x + min >= 0 && x + max < BOARD_W;
+      };
+      const start = { x: 3, rot: 0, d: 0 };
+      const queue = [start];
+      const seen = new Set(['3,0']);
+      while (queue.length) {
+        const state = queue.shift();
+        if (state.x === targetX && state.rot === targetRot) return state.d;
+        const neighbors = [];
+        for (const dx of [-1, 1]) if (legalX(state.x + dx, state.rot)) neighbors.push([state.x + dx, state.rot]);
+        const [minXShape, maxXShape] = widthFor(state.rot);
+        neighbors.push([-minXShape, state.rot], [BOARD_W - 1 - maxXShape, state.rot]);
+        const rotations = [1, -1];
+        if (config.gameplay.allow180) rotations.push(2);
+        for (const delta of rotations) {
+          const rot = type === 'O' ? 0 : (state.rot + delta + 4) % 4;
+          if (legalX(state.x, rot)) neighbors.push([state.x, rot]);
+        }
+        for (const [x, rot] of neighbors) {
+          const key = `${x},${rot}`;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          queue.push({ x, rot, d: state.d + 1 });
+        }
+      }
+      return Infinity;
+    }
+    topOut() {
+      if (this.mode === 'zen') {
+        this.board = makeBoard();
+        this.current = null;
+        this.holdType = null;
+        this.canHold = true;
+        this.combo = -1;
+        this.b2b = 0;
+        this.showAction('ZEN RESET', 'danger');
+        this.spawnNext(true);
+        return;
+      }
+      this.finish(false, 'TOP OUT');
+    }
+    complete() {
+      this.finish(true, 'COMPLETE');
+    }
+    finish(success, badge) {
+      if (this.state === 'over') return;
+      this.result = {
+        success,
+        badge,
+        time: this.playFrame * TICK_MS,
+        pieces: this.pieces,
+        inputs: this.inputs,
+        finesse: this.finesseFaults,
+      };
+      if (this.replay && !this.replayMode) {
+        this.replay.result = deepClone(this.result);
+        this.lastReplay = deepClone(this.replay);
+      }
+      if (success && this.mode === 'sprint') {
+        if (!personalBests.sprint || this.result.time < personalBests.sprint) {
+          personalBests.sprint = this.result.time;
+          try { localStorage.setItem(STORAGE_PB, JSON.stringify(personalBests)); } catch (_) {}
+          $('resultKicker').textContent = 'NEW PERSONAL BEST';
+          $('resultBadge').textContent = 'NEW PB';
+          toast('새 개인 최고 기록입니다.', 'accent');
+        } else {
+          $('resultKicker').textContent = 'RUN COMPLETE';
+          $('resultBadge').textContent = badge;
+        }
+      } else {
+        $('resultKicker').textContent = success ? 'RUN COMPLETE' : 'RUN ENDED';
+        $('resultBadge').textContent = badge;
+      }
+      $('resultTime').textContent = formatTime(this.result.time);
+      $('resultPps').textContent = this.pps().toFixed(2);
+      $('resultKpp').textContent = this.kpp().toFixed(2);
+      $('resultFinesse').textContent = String(this.finesseFaults);
+      $('resultPieces').textContent = String(this.pieces);
+      this.setState('over');
+      this.audio.play(success ? 'complete' : 'topout');
+      this.updatePB();
+      this.updateHUD();
+    }
+    pause(fromSettings = false) {
+      if (this.state !== 'playing') return;
+      this.settingsPaused = fromSettings;
+      this.setState('paused');
+    }
+    resume() {
+      if (this.state !== 'paused') return;
+      this.settingsPaused = false;
+      this.setState('playing');
+    }
+    pps() {
+      const seconds = this.playFrame / TICK_RATE;
+      return seconds > 0 ? this.pieces / seconds : 0;
+    }
+    kpp() {
+      return this.pieces > 0 ? this.inputs / this.pieces : 0;
+    }
+    kps() {
+      const seconds = this.playFrame / TICK_RATE;
+      return seconds > 0 ? this.inputs / seconds : 0;
+    }
+    app() {
+      return this.pieces > 0 ? this.attack / this.pieces : 0;
+    }
+    targetValue() {
+      if (this.mode === 'sprint') return Math.max(0, 40 - this.lines);
+      if (this.mode === 'zen') return this.lines;
+      if (config.gameplay.customLines <= 0) return this.lines;
+      return Math.max(0, config.gameplay.customLines - this.lines);
+    }
+    showAction(text, tone = 'normal') {
+      if (!text) return;
+      const element = $('actionText');
+      element.textContent = text;
+      element.dataset.tone = tone;
+      element.classList.remove('is-visible');
+      void element.offsetWidth;
+      element.classList.add('is-visible');
+      this.actionTextTimer = 75;
+    }
+    updateHUD() {
+      $('inputsValue').textContent = String(this.inputs);
+      $('kppValue').textContent = this.kpp().toFixed(2);
+      $('kpsValue').textContent = this.kps().toFixed(2);
+      $('piecesValue').textContent = String(this.pieces);
+      $('linesValue').textContent = String(this.lines);
+      $('scoreValue').textContent = Math.round(this.score).toLocaleString('en-US');
+      $('comboValue').textContent = this.combo >= 0 ? `${this.combo}×` : '—';
+      $('b2bValue').textContent = this.b2b > 0 ? `${this.b2b}×` : '—';
+      $('finesseValue').textContent = String(this.finesseFaults);
+      $('ppsValue').textContent = this.pps().toFixed(2);
+      $('appValue').textContent = this.app().toFixed(2);
+      $('objectiveValue').textContent = String(this.targetValue());
+      $('objectiveLabel').textContent = this.mode === 'zen' || (this.mode === 'custom' && config.gameplay.customLines <= 0) ? 'LINES' : 'LINES LEFT';
+      $('holdState').textContent = this.canHold ? 'READY' : 'USED';
+      $('latencyText').textContent = `INPUT QUEUE ${this.input.avgLatency().toFixed(1)} ms`;
+      $('sameSeedRestartButton').disabled = !this.seed;
+      $('footerRestartButton').disabled = !this.seed;
+    }
+  }
+
+  const formatTime = (ms) => {
+    if (!Number.isFinite(ms)) return '—';
+    const total = Math.max(0, Math.floor(ms));
+    const minutes = Math.floor(total / 60000);
+    const seconds = Math.floor((total % 60000) / 1000);
+    const millis = total % 1000;
+    return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}.${String(millis).padStart(3, '0')}`;
+  };
+
+  const toast = (message, tone = 'normal') => {
+    const element = document.createElement('div');
+    element.className = `toast ${tone === 'accent' ? 'is-accent' : tone === 'danger' ? 'is-danger' : ''}`;
+    element.textContent = message;
+    $('toastHost')?.appendChild(element);
+    setTimeout(() => {
+      element.style.opacity = '0';
+      element.style.transform = 'translateY(5px)';
+      setTimeout(() => element.remove(), 220);
+    }, 2200);
+  };
+
+  const downloadJSON = (name, value) => {
+    const blob = new Blob([JSON.stringify(value, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = name;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+
+  const readJSONFile = (file) => new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('파일을 읽을 수 없습니다.'));
+    reader.onload = () => {
+      try { resolve(JSON.parse(String(reader.result))); }
+      catch (_) { reject(new Error('올바른 JSON 파일이 아닙니다.')); }
+    };
+    reader.readAsText(file);
+  });
+
+  const input = new InputManager();
+  const audio = new AudioEngine();
+  const renderer = new Renderer();
+  const game = new GameEngine(input, renderer, audio);
+
+  const settingsOpen = () => !$('settingsPanel').classList.contains('is-hidden');
+  let settingsWasPlaying = false;
+  const openSettings = (tab = 'handling') => {
+    if (settingsOpen()) return;
+    settingsWasPlaying = game.state === 'playing';
+    if (settingsWasPlaying) game.pause(true);
+    selectSettingsTab(tab);
+    $('settingsBackdrop').classList.remove('is-hidden');
+    $('settingsPanel').classList.remove('is-hidden');
+    syncSettingsUI();
+  };
+  const closeSettings = () => {
+    $('settingsBackdrop').classList.add('is-hidden');
+    $('settingsPanel').classList.add('is-hidden');
+    input.finishCapture(null, false);
+    saveConfig();
+    if (settingsWasPlaying && game.state === 'paused') game.resume();
+    settingsWasPlaying = false;
+  };
+  const selectSettingsTab = (tab) => {
+    document.querySelectorAll('.settings-tab').forEach((button) => button.classList.toggle('is-active', button.dataset.tab === tab));
+    document.querySelectorAll('.settings-section').forEach((section) => section.classList.toggle('is-active', section.dataset.section === tab));
+  };
+
+  const setMode = (mode) => {
+    if (!['sprint', 'zen', 'custom'].includes(mode)) return;
+    if (game.state !== 'idle') game.resetToIdle();
+    game.mode = mode;
+    config.ui.mode = mode;
+    game.updateModeUI();
+    scheduleSave();
+  };
+
+  const toggleFullscreen = async () => {
+    try {
+      if (!document.fullscreenElement) await document.documentElement.requestFullscreen();
+      else await document.exitFullscreen();
+    } catch (_) {
+      toast('이 브라우저에서는 전체 화면을 열 수 없습니다.', 'danger');
+    }
+  };
+
+  const updateAudioButton = () => {
+    $('audioButton').textContent = config.ui.audioEnabled ? '◖' : '⊘';
+    $('audioButton').classList.toggle('is-muted', !config.ui.audioEnabled);
+  };
+
+  const updateHandlingHUD = () => {
+    $('arrHud').textContent = `${config.handling.arr.toFixed(1)}F`;
+    $('dasHud').textContent = `${config.handling.das.toFixed(1)}F`;
+    $('dcdHud').textContent = `${config.handling.dcd.toFixed(1)}F`;
+    $('sdfHud').textContent = config.handling.sdfMax ? 'MAX' : `${config.handling.sdf}×`;
+  };
+
+  const updateControlHints = () => {
+    const first = (action) => prettyCode(config.controls.bindings[action].find(Boolean) || '');
+    $('hintLeft').textContent = first('moveLeft');
+    $('hintRight').textContent = first('moveRight');
+    $('hintCcw').textContent = first('rotateCCW');
+    $('hintCw').textContent = first('rotateCW');
+    $('hintHold').textContent = first('hold');
+    $('hintHard').textContent = first('hardDrop');
+    $('hintRestart').textContent = first('retry');
+    $('hintPause').textContent = first('pause');
+  };
+
+  const applyVisualConfig = () => {
+    $('boardRig').parentElement.style.setProperty('--board-scale', String(config.visual.boardZoom / 100));
+    document.body.classList.toggle('reduced-motion', config.visual.reducedMotion);
+    updateAudioButton();
+  };
+
+  const renderBindings = () => {
+    const host = $('bindingsList');
+    host.innerHTML = '';
+    for (const [action, label] of ACTION_META) {
+      const row = document.createElement('div');
+      row.className = 'binding-row';
+      const title = document.createElement('span');
+      title.textContent = label;
+      row.appendChild(title);
+      config.controls.bindings[action].forEach((code, index) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'binding-slot';
+        button.textContent = prettyCode(code);
+        button.title = code || '비어 있음';
+        button.addEventListener('click', () => input.startCapture(action, index));
+        row.appendChild(button);
+      });
+      host.appendChild(row);
+    }
+    $('guidelinePresetButton').classList.toggle('is-active', config.controls.preset === 'guideline');
+    $('wasdPresetButton').classList.toggle('is-active', config.controls.preset === 'wasd');
+  };
+
+  const bindNumberRange = ({ range, number, output, get, set, format, min, max }) => {
+    const r = $(range); const n = number ? $(number) : null; const o = $(output);
+    const update = (raw) => {
+      const value = clamp(Number(raw), min, max);
+      set(value);
+      r.value = String(value);
+      if (n) n.value = String(value);
+      o.textContent = format(value);
+      updateHandlingHUD();
+      applyVisualConfig();
+      scheduleSave();
+    };
+    r.addEventListener('input', () => update(r.value));
+    if (n) n.addEventListener('change', () => update(n.value));
+    return () => {
+      const value = get();
+      r.value = String(value);
+      if (n) n.value = String(value);
+      o.textContent = format(value);
+    };
+  };
+
+  const rangeSyncers = [
+    bindNumberRange({ range: 'arrRange', number: 'arrNumber', output: 'arrOutput', get: () => config.handling.arr, set: (v) => { config.handling.arr = Math.round(v * 10) / 10; }, format: (v) => `${v.toFixed(1)}F`, min: 0, max: 20 }),
+    bindNumberRange({ range: 'dasRange', number: 'dasNumber', output: 'dasOutput', get: () => config.handling.das, set: (v) => { config.handling.das = Math.round(v * 10) / 10; }, format: (v) => `${v.toFixed(1)}F`, min: 1, max: 60 }),
+    bindNumberRange({ range: 'dcdRange', number: 'dcdNumber', output: 'dcdOutput', get: () => config.handling.dcd, set: (v) => { config.handling.dcd = Math.round(v * 10) / 10; }, format: (v) => `${v.toFixed(1)}F`, min: 0, max: 60 }),
+    bindNumberRange({ range: 'gravityRange', number: 'gravityNumber', output: 'gravityOutput', get: () => config.gameplay.gravity, set: (v) => { config.gameplay.gravity = Math.round(v * 1000) / 1000; }, format: (v) => `${v.toFixed(3)}G`, min: 0, max: 20 }),
+    bindNumberRange({ range: 'lockDelayRange', number: 'lockDelayNumber', output: 'lockDelayOutput', get: () => config.gameplay.lockDelay, set: (v) => { config.gameplay.lockDelay = Math.round(v); }, format: (v) => `${Math.round(v)}F`, min: 1, max: 600 }),
+    bindNumberRange({ range: 'lockResetRange', number: 'lockResetNumber', output: 'lockResetOutput', get: () => config.gameplay.lockResets, set: (v) => { config.gameplay.lockResets = Math.round(v); }, format: (v) => String(Math.round(v)), min: 0, max: 99 }),
+    bindNumberRange({ range: 'areRange', number: 'areNumber', output: 'areOutput', get: () => config.gameplay.are, set: (v) => { config.gameplay.are = Math.round(v); }, format: (v) => `${Math.round(v)}F`, min: 0, max: 600 }),
+    bindNumberRange({ range: 'lineAreRange', number: 'lineAreNumber', output: 'lineAreOutput', get: () => config.gameplay.lineAre, set: (v) => { config.gameplay.lineAre = Math.round(v); }, format: (v) => `${Math.round(v)}F`, min: 0, max: 600 }),
+    bindNumberRange({ range: 'customLinesRange', number: 'customLinesNumber', output: 'customLinesOutput', get: () => config.gameplay.customLines, set: (v) => { config.gameplay.customLines = Math.round(v); }, format: (v) => Math.round(v) === 0 ? '∞' : String(Math.round(v)), min: 0, max: 9999 }),
+    bindNumberRange({ range: 'boardZoomRange', number: 'boardZoomNumber', output: 'boardZoomOutput', get: () => config.visual.boardZoom, set: (v) => { config.visual.boardZoom = Math.round(v); }, format: (v) => `${Math.round(v)}%`, min: 60, max: 140 }),
+    bindNumberRange({ range: 'gridOpacityRange', number: 'gridOpacityNumber', output: 'gridOpacityOutput', get: () => config.visual.gridOpacity, set: (v) => { config.visual.gridOpacity = Math.round(v); }, format: (v) => `${Math.round(v)}%`, min: 0, max: 100 }),
+    bindNumberRange({ range: 'ghostOpacityRange', number: 'ghostOpacityNumber', output: 'ghostOpacityOutput', get: () => config.visual.ghostOpacity, set: (v) => { config.visual.ghostOpacity = Math.round(v); }, format: (v) => `${Math.round(v)}%`, min: 0, max: 100 }),
+    bindNumberRange({ range: 'bounceRange', number: 'bounceNumber', output: 'bounceOutput', get: () => config.visual.bounce, set: (v) => { config.visual.bounce = Math.round(v); }, format: (v) => `${Math.round(v)}%`, min: 0, max: 100 }),
+    bindNumberRange({ range: 'particlesRange', number: 'particlesNumber', output: 'particlesOutput', get: () => config.visual.particles, set: (v) => { config.visual.particles = Math.round(v); }, format: (v) => `${Math.round(v)}%`, min: 0, max: 100 }),
+    bindNumberRange({ range: 'volumeRange', number: 'volumeNumber', output: 'volumeOutput', get: () => config.visual.volume, set: (v) => { config.visual.volume = Math.round(v); }, format: (v) => `${Math.round(v)}%`, min: 0, max: 100 }),
+  ];
+
+  const toggleMap = {
+    hardDropSafetyToggle: ['handling', 'hardDropSafety'],
+    cancelDasToggle: ['handling', 'cancelDas'],
+    softDropPriorityToggle: ['handling', 'softDropPriority'],
+    ghostToggle: ['gameplay', 'ghost'],
+    holdEnabledToggle: ['gameplay', 'holdEnabled'],
+    allow180Toggle: ['gameplay', 'allow180'],
+    coloredGhostToggle: ['visual', 'coloredGhost'],
+    hardDropTrailToggle: ['visual', 'hardDropTrail'],
+    reducedMotionToggle: ['visual', 'reducedMotion'],
+  };
+  for (const [id, [section, key]] of Object.entries(toggleMap)) {
+    $(id).addEventListener('change', () => {
+      config[section][key] = $(id).checked;
+      applyVisualConfig();
+      scheduleSave();
+    });
+  }
+
+  const selectMap = {
+    irsSelect: ['handling', 'irs'],
+    ihsSelect: ['handling', 'ihs'],
+    randomizerSelect: ['gameplay', 'randomizer'],
+    rotationSelect: ['gameplay', 'rotation'],
+  };
+  for (const [id, [section, key]] of Object.entries(selectMap)) {
+    $(id).addEventListener('change', () => {
+      config[section][key] = $(id).value;
+      scheduleSave();
+    });
+  }
+
+  $('sdfRange').addEventListener('input', () => {
+    const value = Number($('sdfRange').value);
+    config.handling.sdfMax = value >= 41;
+    config.handling.sdf = config.handling.sdfMax ? 40 : value;
+    $('sdfOutput').textContent = config.handling.sdfMax ? 'MAX' : `${config.handling.sdf}×`;
+    updateHandlingHUD();
+    scheduleSave();
+  });
+  $('sdfMaxButton').addEventListener('click', () => {
+    config.handling.sdfMax = !config.handling.sdfMax;
+    $('sdfRange').value = config.handling.sdfMax ? '41' : String(config.handling.sdf);
+    $('sdfOutput').textContent = config.handling.sdfMax ? 'MAX' : `${config.handling.sdf}×`;
+    updateHandlingHUD();
+    scheduleSave();
+  });
+  $('gamepadSensitivityRange').addEventListener('input', () => {
+    config.controls.gamepadSensitivity = Number($('gamepadSensitivityRange').value);
+    $('gamepadSensitivityOutput').textContent = `${config.controls.gamepadSensitivity}%`;
+    scheduleSave();
+  });
+
+  const syncSettingsUI = () => {
+    rangeSyncers.forEach((sync) => sync());
+    for (const [id, [section, key]] of Object.entries(toggleMap)) $(id).checked = Boolean(config[section][key]);
+    for (const [id, [section, key]] of Object.entries(selectMap)) $(id).value = config[section][key];
+    $('sdfRange').value = config.handling.sdfMax ? '41' : String(config.handling.sdf);
+    $('sdfOutput').textContent = config.handling.sdfMax ? 'MAX' : `${config.handling.sdf}×`;
+    $('gamepadSensitivityRange').value = String(config.controls.gamepadSensitivity);
+    $('gamepadSensitivityOutput').textContent = `${config.controls.gamepadSensitivity}%`;
+    $('proModeToggle').checked = config.ui.proMode;
+    $('finesseAlertToggle').checked = config.ui.finesseAlert;
+    $('finesseRetryToggle').checked = config.ui.retryOnFinesse;
+    $('strideModeToggle').checked = config.ui.strideMode;
+    renderBindings();
+    updateHandlingHUD();
+    updateControlHints();
+    applyVisualConfig();
+  };
+
+  const resetSection = (section) => {
+    config[section] = deepClone(DEFAULT_CONFIG[section]);
+    if (section === 'controls') input.rebuildBindings();
+    syncSettingsUI();
+    scheduleSave();
+    toast(`${section.toUpperCase()} 기본값을 복원했습니다.`);
+  };
+
+  $('resetHandlingButton').addEventListener('click', () => resetSection('handling'));
+  $('resetControlsButton').addEventListener('click', () => resetSection('controls'));
+  $('resetGameplayButton').addEventListener('click', () => resetSection('gameplay'));
+  $('resetVisualButton').addEventListener('click', () => resetSection('visual'));
+
+  const applyPreset = (name) => {
+    config.controls.preset = name;
+    config.controls.bindings = deepClone(name === 'wasd' ? WASD_BINDINGS : GUIDELINE_BINDINGS);
+    input.rebuildBindings();
+    renderBindings();
+    updateControlHints();
+    scheduleSave();
+    toast(`${name.toUpperCase()} 키 프리셋을 적용했습니다.`, 'accent');
+  };
+  $('guidelinePresetButton').addEventListener('click', () => applyPreset('guideline'));
+  $('wasdPresetButton').addEventListener('click', () => applyPreset('wasd'));
+
+  $('proModeToggle').addEventListener('change', () => {
+    config.ui.proMode = $('proModeToggle').checked;
+    document.body.classList.toggle('pro-disabled', !config.ui.proMode);
+    scheduleSave();
+  });
+  $('finesseAlertToggle').addEventListener('change', () => { config.ui.finesseAlert = $('finesseAlertToggle').checked; scheduleSave(); });
+  $('finesseRetryToggle').addEventListener('change', () => { config.ui.retryOnFinesse = $('finesseRetryToggle').checked; scheduleSave(); });
+  $('strideModeToggle').addEventListener('change', () => { config.ui.strideMode = $('strideModeToggle').checked; scheduleSave(); });
+
+  document.querySelectorAll('.mode-tab').forEach((button) => button.addEventListener('click', () => setMode(button.dataset.mode)));
+  document.querySelectorAll('.settings-tab').forEach((button) => button.addEventListener('click', () => selectSettingsTab(button.dataset.tab)));
+  $('configButton').addEventListener('click', () => openSettings('handling'));
+  $('handlingEditButton').addEventListener('click', () => openSettings('handling'));
+  $('closeSettingsButton').addEventListener('click', closeSettings);
+  $('doneSettingsButton').addEventListener('click', closeSettings);
+  $('settingsBackdrop').addEventListener('click', closeSettings);
+  $('startButton').addEventListener('click', () => game.start());
+  $('pauseButton').addEventListener('click', () => game.pause(false));
+  $('resumeButton').addEventListener('click', () => game.resume());
+  $('pauseRestartButton').addEventListener('click', () => game.start({ sameSeed: true }));
+  $('retryButton').addEventListener('click', () => game.start({ sameSeed: true }));
+  $('newSeedButton').addEventListener('click', () => game.start());
+  $('sameSeedRestartButton').addEventListener('click', () => game.start({ sameSeed: true }));
+  $('footerRestartButton').addEventListener('click', () => game.start({ sameSeed: true }));
+  $('brandButton').addEventListener('click', () => game.resetToIdle());
+  $('fullscreenButton').addEventListener('click', toggleFullscreen);
+  $('audioButton').addEventListener('click', () => {
+    config.ui.audioEnabled = !config.ui.audioEnabled;
+    updateAudioButton();
+    if (config.ui.audioEnabled) audio.ensure();
+    scheduleSave();
+  });
+  $('handlingTestButton').addEventListener('click', () => {
+    closeSettings();
+    game.mode = 'zen';
+    game.start({ handlingTest: true, skipCountdown: true });
+  });
+
+  $('exportSettingsButton').addEventListener('click', () => downloadJSON(`stacklab-settings-${new Date().toISOString().slice(0, 10)}.json`, {
+    format: 'stacklab-settings', version: VERSION, config,
+  }));
+  $('importSettingsButton').addEventListener('click', () => $('importSettingsInput').click());
+  $('importSettingsInput').addEventListener('change', async () => {
+    const file = $('importSettingsInput').files?.[0];
+    if (!file) return;
+    try {
+      const data = await readJSONFile(file);
+      if (data.format !== 'stacklab-settings' || !data.config) throw new Error('STACK//LAB 설정 파일이 아닙니다.');
+      config = sanitizeConfig(data.config);
+      input.rebuildBindings();
+      syncSettingsUI();
+      game.mode = config.ui.mode;
+      game.updateModeUI();
+      saveConfig();
+      toast('설정을 가져왔습니다.', 'accent');
+    } catch (error) {
+      toast(error.message, 'danger');
+    }
+    $('importSettingsInput').value = '';
+  });
+  $('exportReplayButton').addEventListener('click', () => {
+    if (!game.lastReplay) { toast('내보낼 완료 리플레이가 없습니다.', 'danger'); return; }
+    downloadJSON(`stacklab-replay-${game.seed.toString(16).padStart(8, '0')}.json`, game.lastReplay);
+  });
+  $('importReplayButton').addEventListener('click', () => $('importReplayInput').click());
+  $('importReplayInput').addEventListener('change', async () => {
+    const file = $('importReplayInput').files?.[0];
+    if (!file) return;
+    try {
+      const replay = await readJSONFile(file);
+      if (replay.format !== 'stacklab-replay' || !Array.isArray(replay.events) || !Number.isFinite(replay.seed)) throw new Error('STACK//LAB 리플레이 파일이 아닙니다.');
+      config = sanitizeConfig(deepMerge(config, replay.config || {}));
+      input.rebuildBindings();
+      syncSettingsUI();
+      closeSettings();
+      game.start({ seed: replay.seed, mode: replay.mode || 'sprint', replay });
+      toast('리플레이를 재생합니다.', 'accent');
+    } catch (error) {
+      toast(error.message, 'danger');
+    }
+    $('importReplayInput').value = '';
+  });
+  $('resetAllDataButton').addEventListener('click', () => {
+    config = deepClone(DEFAULT_CONFIG);
+    personalBests = { sprint: null };
+    try { localStorage.removeItem(STORAGE_CONFIG); localStorage.removeItem(STORAGE_PB); } catch (_) {}
+    input.rebuildBindings();
+    syncSettingsUI();
+    game.mode = config.ui.mode;
+    game.updateModeUI();
+    toast('모든 로컬 데이터를 초기화했습니다.', 'danger');
+  });
+
+  $('buildLabel').textContent = `BUILD ${VERSION}`;
+  document.body.classList.toggle('pro-disabled', !config.ui.proMode);
+  syncSettingsUI();
+  game.updateModeUI();
+  game.updateHUD();
+
+  let accumulator = 0;
+  let previous = performance.now();
+  let fpsWindowStart = previous;
+  let renderedFrames = 0;
+  let fixedFrame = 0;
+
+  const loop = (now) => {
+    input.pollGamepads();
+    const delta = clamp(now - previous, 0, 100);
+    previous = now;
+    accumulator += delta;
+    let steps = 0;
+    while (accumulator >= TICK_MS && steps < 8) {
+      game.fixedUpdate();
+      accumulator -= TICK_MS;
+      fixedFrame += 1;
+      steps += 1;
+    }
+    if (steps === 8) accumulator = 0;
+    renderer.draw(game);
+    renderer.drawEffects(now);
+    renderedFrames += 1;
+    if (now - fpsWindowStart >= 500) {
+      const fps = Math.round(renderedFrames * 1000 / (now - fpsWindowStart));
+      $('fpsValue').textContent = String(fps);
+      $('performanceBadge').classList.toggle('is-low', fps < 50);
+      fpsWindowStart = now;
+      renderedFrames = 0;
+    }
+    requestAnimationFrame(loop);
+  };
+  requestAnimationFrame(loop);
+})();
+
+</script>
+</body>
+</html>
