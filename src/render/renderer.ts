@@ -12,6 +12,16 @@ import {
   deepClone,
 } from '../core/state';
 
+const SPRINT_TARGET_LINES = 40;
+
+const sprintProgressState = (game, proMode = true) => {
+  const cleared = clamp(Math.floor(Number(game?.lines) || 0), 0, SPRINT_TARGET_LINES);
+  return {
+    visible: Boolean(proMode && game?.mode === 'sprint'),
+    remaining: SPRINT_TARGET_LINES - cleared,
+  };
+};
+
 class Renderer {
   [key: string]: any;
   constructor() {
@@ -165,6 +175,8 @@ class Renderer {
       ctx.restore();
     }
 
+    this.drawSprintProgress(game);
+
     const finesseDrill = Boolean(game.isFinesseDrill?.());
     const finesseTarget = finesseDrill ? game.finesseSession?.currentCase : null;
     const spinDrill = Boolean(game.isSpinDrill?.());
@@ -240,6 +252,29 @@ class Renderer {
       }
     }
     this.updateDanger(game);
+  }
+  drawSprintProgress(game) {
+    const progressState = sprintProgressState(game, config.ui.proMode);
+    if (!progressState.visible) return;
+
+    const ctx = this.ctx;
+    const boardWidth = BOARD_W * CELL;
+    const centerX = boardWidth / 2;
+    const centerY = VISIBLE_H * CELL * 0.34;
+
+    ctx.save();
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.lineJoin = 'round';
+
+    ctx.globalAlpha = 0.82;
+    ctx.font = `900 ${CELL * 3.25}px "Arial Black", Inter, sans-serif`;
+    ctx.lineWidth = Math.max(8, CELL * 0.12);
+    ctx.strokeStyle = '#0c0a0f';
+    ctx.strokeText(String(progressState.remaining), centerX, centerY);
+    ctx.fillStyle = '#3a3045';
+    ctx.fillText(String(progressState.remaining), centerX, centerY);
+    ctx.restore();
   }
   drawMini(ctx, canvas, type, blockSize) {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -425,4 +460,4 @@ class Renderer {
 
 const makeBoard = () => Array.from({ length: BOARD_H }, () => Array(BOARD_W).fill(null));
 
-export { Renderer };
+export { Renderer, sprintProgressState };
