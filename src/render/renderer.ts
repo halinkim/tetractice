@@ -16,9 +16,13 @@ const SPRINT_TARGET_LINES = 40;
 
 const sprintProgressState = (game, proMode = true) => {
   const cleared = clamp(Math.floor(Number(game?.lines) || 0), 0, SPRINT_TARGET_LINES);
+  const remaining = SPRINT_TARGET_LINES - cleared;
   return {
     visible: Boolean(proMode && game?.mode === 'sprint'),
-    remaining: SPRINT_TARGET_LINES - cleared,
+    remaining,
+    finishLineY: remaining > 0 && remaining <= VISIBLE_H
+      ? (VISIBLE_H - remaining) * CELL
+      : null,
   };
 };
 
@@ -193,6 +197,7 @@ class Renderer {
         }
       }
     }
+    this.drawSprintFinishLine(game);
     if (game.current) {
       if (config.gameplay.ghost) {
         const ghostY = game.ghostY();
@@ -274,6 +279,44 @@ class Renderer {
     ctx.strokeText(String(progressState.remaining), centerX, centerY);
     ctx.fillStyle = '#3a3045';
     ctx.fillText(String(progressState.remaining), centerX, centerY);
+    ctx.restore();
+  }
+  drawSprintFinishLine(game) {
+    const progressState = sprintProgressState(game, config.ui.proMode);
+    if (!progressState.visible || progressState.finishLineY === null) return;
+
+    const ctx = this.ctx;
+    const boardWidth = BOARD_W * CELL;
+    const lineY = clamp(progressState.finishLineY, CELL * 0.28, VISIBLE_H * CELL - CELL * 0.1);
+    const arrowXs = [CELL * 0.22, boardWidth - CELL * 0.22];
+
+    const path = () => {
+      ctx.beginPath();
+      ctx.moveTo(0, lineY);
+      ctx.lineTo(boardWidth, lineY);
+      ctx.stroke();
+      for (const x of arrowXs) {
+        ctx.beginPath();
+        ctx.moveTo(x, lineY - CELL * 0.26);
+        ctx.lineTo(x, lineY - CELL * 0.08);
+        ctx.moveTo(x - CELL * 0.07, lineY - CELL * 0.15);
+        ctx.lineTo(x, lineY - CELL * 0.06);
+        ctx.lineTo(x + CELL * 0.07, lineY - CELL * 0.15);
+        ctx.stroke();
+      }
+    };
+
+    ctx.save();
+    ctx.lineCap = 'square';
+    ctx.lineJoin = 'miter';
+    ctx.globalAlpha = 0.78;
+    ctx.strokeStyle = '#0c0a0f';
+    ctx.lineWidth = Math.max(8, CELL * 0.1);
+    path();
+    ctx.globalAlpha = 0.94;
+    ctx.strokeStyle = '#ffd34e';
+    ctx.lineWidth = Math.max(3, CELL * 0.045);
+    path();
     ctx.restore();
   }
   drawMini(ctx, canvas, type, blockSize) {
