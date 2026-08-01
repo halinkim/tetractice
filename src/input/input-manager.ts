@@ -2,16 +2,27 @@ import {
   $,
   ACTION_META,
   PRESET_ALIASES,
+  TICK_MS,
   clamp,
   config,
 } from '../core/state';
 import { uiBridge } from '../ui/bridge';
+
+const normalizeEventTimestamp = (value, now = performance.now()) => (
+  Number.isFinite(value) && Math.abs(value - now) < 60_000 ? value : now
+);
+
+const calculateSubframe = (at, tickStart, tickEnd) => {
+  const span = Math.max(0.001, tickEnd - tickStart);
+  return Number(clamp((at - tickStart) / span, 0, 1).toFixed(9));
+};
 
 class InputManager {
   [key: string]: any;
   constructor() {
     this.queue = [];
     this.states = new Map();
+    this.tickStartStates = new Map();
     this.edges = [];
     this.bindingMap = new Map();
     this.gamepadState = new Map();
@@ -87,29 +98,52 @@ class InputManager {
     const actions = this.bindingMap.get(event.code) || [];
     for (const action of actions) this.enqueue(action, 'up', event.timeStamp || performance.now(), 'keyboard');
   }
-  enqueue(action, type, at = performance.now(), source = 'virtual') {
-    this.queue.push({ action, type, at, source, seq: this.sequence += 1 });
-  }
-  inject(action, type) {
-    this.enqueue(action, type, performance.now(), 'replay');
-  }
-  beginTick(frame) {
-    this.edges.length = 0;
+  enqueue(action, type, at = performance.now(), source = 'virtual', forcedSubframe = null) {
     const now = performance.now();
-    const events = this.queue.splice(0).sort((a, b) => a.seq - b.seq);
+    this.queue.push({
+      action,
+      type,
+      at: normalizeEventTimestamp(at, now),
+      source,
+      forcedSubframe,
+      seq: this.sequence += 1,
+    });
+  }
+  inject(action, type, subframe = 0) {
+    this.enqueue(action, type, performance.now(), 'replay', clamp(Number(subframe) || 0, 0, 1));
+  }
+  beginTick(frame, tickStart = performance.now() - TICK_MS, tickEnd = performance.now()) {
+    this.edges.length = 0;
+    this.tickStartStates = new Map(
+      [...this.states].map(([action, state]) => [action, { ...state }]),
+    );
+    const now = performance.now();
+    const ready = [];
+    const pending = [];
+    for (const event of this.queue) {
+      if (Number.isFinite(event.forcedSubframe) || event.at <= tickEnd + 0.001) ready.push(event);
+      else pending.push(event);
+    }
+    this.queue = pending;
+    const events = ready.sort((a, b) => (a.forcedSubframe ?? calculateSubframe(a.at, tickStart, tickEnd))
+      - (b.forcedSubframe ?? calculateSubframe(b.at, tickStart, tickEnd)) || a.seq - b.seq);
     for (const event of events) {
       const state = this.state(event.action);
+      const subframe = Number.isFinite(event.forcedSubframe)
+        ? clamp(event.forcedSubframe, 0, 1)
+        : calculateSubframe(event.at, tickStart, tickEnd);
+      const edge = { ...event, subframe };
       if (event.type === 'pulse') {
-        this.edges.push({ ...event, type: 'down', pulse: true });
+        this.edges.push({ ...edge, type: 'down', pulse: true });
       } else if (event.type === 'down') {
         if (state.down) continue;
         state.down = true;
-        state.lastPressed = frame;
-        this.edges.push(event);
+        state.lastPressed = frame + subframe;
+        this.edges.push(edge);
       } else if (event.type === 'up') {
         if (!state.down) continue;
         state.down = false;
-        this.edges.push(event);
+        this.edges.push(edge);
       }
       if (event.source === 'keyboard' || event.source === 'gamepad') {
         const latency = clamp(now - event.at, 0, 100);
@@ -121,6 +155,12 @@ class InputManager {
   isDown(action) {
     return this.state(action).down;
   }
+  tickStartIsDown(action) {
+    return this.tickStartStates.get(action)?.down || false;
+  }
+  tickStartLastPressed(action) {
+    return this.tickStartStates.get(action)?.lastPressed ?? -Infinity;
+  }
   lastPressed(action) {
     return this.state(action).lastPressed;
   }
@@ -131,6 +171,7 @@ class InputManager {
   hardReset() {
     this.queue.length = 0;
     this.edges.length = 0;
+    this.tickStartStates.clear();
     for (const state of this.states.values()) { state.down = false; state.lastPressed = -Infinity; }
     this.gamepadState.clear();
     this.analogState = { left: false, right: false, down: false };
@@ -197,4 +238,4 @@ class InputManager {
   }
 }
 
-export { InputManager };
+export { InputManager, calculateSubframe, normalizeEventTimestamp };

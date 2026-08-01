@@ -3,90 +3,167 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="theme-color" content="#070a10" />
-  <meta name="description" content="고정 60Hz 시뮬레이션 기반의 고성능 스태커 훈련 도구" />
+  <meta name="theme-color" content="#17141f" />
+  <meta name="description" content="빠르고 깔끔한 스태커 연습 게임" />
   <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-  <title>STACK//LAB — High Fidelity Stacker Trainer</title>
+  <title>STACK LAB — 스태커 연습 게임</title>
 </head>
 <body>
-  <div class="ambient" aria-hidden="true">
-    <div class="ambient-grid"></div>
-    <div class="ambient-glow glow-a"></div>
-    <div class="ambient-glow glow-b"></div>
-    <div class="noise"></div>
-  </div>
+  <div class="ambient" aria-hidden="true"></div>
 
   <div id="uiRoot" class="ui-root" data-ui-scale="1.000">
   <div id="app" class="app" data-state="idle">
     <header class="topbar">
       <button id="brandButton" class="brand" type="button" aria-label="홈">
-        <span class="brand-mark">S</span>
-        <span class="brand-copy"><b>STACK<span>//</span>LAB</b><small>HIGH FIDELITY TRAINER</small></span>
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+        <span class="brand-copy"><b>STACK <span>LAB</span></b></span>
       </button>
 
       <nav class="mode-tabs" aria-label="연습 모드">
         <button class="mode-tab is-active" type="button" data-mode="sprint">40 LINES</button>
+        <button class="mode-tab" type="button" data-mode="finesse">FINESSE</button>
+        <button class="mode-tab" type="button" data-mode="spin">SPIN</button>
         <button class="mode-tab" type="button" data-mode="zen">ZEN</button>
         <button class="mode-tab" type="button" data-mode="custom">CUSTOM</button>
       </nav>
 
       <div class="top-actions">
-        <div id="performanceBadge" class="perf-badge" title="렌더링 FPS / 고정 시뮬레이션 주파수">
-          <span id="fpsValue">60</span><small>FPS</small><i></i><span>60</span><small>TPS</small>
-        </div>
-        <button id="audioButton" class="icon-button" type="button" title="소리 켜기/끄기" aria-label="소리 켜기/끄기">◖</button>
-        <button id="fullscreenButton" class="icon-button" type="button" title="전체 화면" aria-label="전체 화면">⛶</button>
-        <button id="configButton" class="config-button" type="button"><span>CONFIG</span><kbd>F10</kbd></button>
+        <button id="audioButton" class="icon-button" type="button" title="소리 켜기/끄기" aria-label="소리 켜기/끄기">
+          <svg class="sound-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M4 9h4l5-4v14l-5-4H4zM17 8c1 1 1.5 2.3 1.5 4S18 15 17 16M19.5 5.5c2 1.8 3 4 3 6.5s-1 4.7-3 6.5" /></svg>
+        </button>
+        <button id="fullscreenButton" class="icon-button" type="button" title="전체 화면" aria-label="전체 화면">
+          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5" /></svg>
+        </button>
+        <button id="configButton" class="config-button" type="button"><span>SETTINGS</span></button>
       </div>
     </header>
 
     <main class="game-layout">
       <aside class="side side-left">
         <section class="piece-panel hold-panel">
-          <header><span>HOLD</span><small id="holdState">READY</small></header>
-          <canvas id="holdCanvas" width="160" height="116" aria-label="홀드 조각"></canvas>
-        </section>
-
-        <section class="stat-stack pro-only">
-          <div class="big-stat"><span>INPUTS</span><strong id="inputsValue">0</strong></div>
-          <div class="small-stat-row"><span>KPP</span><b id="kppValue">0.00</b></div>
-          <div class="small-stat-row"><span>KEYS / SEC</span><b id="kpsValue">0.00</b></div>
+          <header><span id="holdPanelLabel">HOLD</span><small id="holdState">READY</small></header>
+          <canvas id="holdCanvas" width="320" height="232" aria-label="홀드 조각"></canvas>
         </section>
 
         <section class="run-card">
-          <header><span>RUN</span><small id="seedValue">—</small></header>
-          <div class="run-row"><span>PIECES</span><b id="piecesValue">0</b></div>
-          <div class="run-row"><span>LINES</span><b id="linesValue">0</b></div>
-          <div class="run-row"><span>SCORE</span><b id="scoreValue">0</b></div>
-          <div class="run-row"><span>COMBO</span><b id="comboValue">—</b></div>
-          <div class="run-row"><span>B2B</span><b id="b2bValue">—</b></div>
+          <header><span id="runCardTitle">RUN</span><small id="seedValue" class="visually-hidden">—</small></header>
+          <div class="run-row run-score"><span id="scoreRunLabel">SCORE</span><b id="scoreValue">0</b></div>
+          <div class="run-row run-pace"><span>PPS</span><b id="ppsValue" aria-label="현재 PPS">0.00</b></div>
+          <div class="run-row run-finesse"><span id="finesseRunLabel">FINESSE</span><b id="finesseValue">100% · 0F</b></div>
+          <div class="run-row"><span id="linesRunLabel">LINES</span><b id="linesValue">0</b></div>
+          <div class="run-row"><span id="piecesRunLabel">PIECES</span><b id="piecesValue">0</b></div>
+          <div class="run-row"><span id="comboRunLabel">COMBO</span><b id="comboValue">—</b></div>
+          <div class="run-row"><span id="b2bRunLabel">B2B</span><b id="b2bValue">—</b></div>
         </section>
       </aside>
 
       <section class="board-column">
         <div class="objective-row">
-          <div><span id="objectiveLabel">LINES LEFT</span><strong id="objectiveValue">40</strong></div>
+          <div class="objective-stat time-stat"><span>TIME</span><strong id="elapsedTime">00:00.000</strong></div>
+          <div class="objective-stat lines-stat"><span id="objectiveLabel">LINES LEFT</span><strong id="objectiveValue">40</strong></div>
           <button id="pauseButton" type="button" title="일시정지"><span>Ⅱ</span></button>
         </div>
 
         <div id="boardRig" class="board-rig">
           <div id="dangerGlow" class="danger-glow"></div>
-          <canvas id="boardCanvas" width="600" height="1200" aria-label="게임 보드"></canvas>
-          <canvas id="fxCanvas" width="600" height="1200" aria-hidden="true"></canvas>
+          <canvas id="boardCanvas" width="800" height="1600" aria-label="게임 보드"></canvas>
+          <canvas id="fxCanvas" width="800" height="1600" aria-hidden="true"></canvas>
           <div id="actionText" class="action-text" aria-live="polite"></div>
+          <div id="finesseHint" class="finesse-hint" aria-live="polite"></div>
+          <div id="spinCoach" class="spin-coach is-hidden" aria-live="polite">
+            <div class="spin-coach-head"><b id="spinCaseTitle">S-SPIN DOUBLE</b><span id="spinKickValue">홈 앞으로 이동</span></div>
+            <div class="spin-state-line"><span id="spinStateFrom">오른쪽 세로 (R)</span><i aria-hidden="true">→</i><span id="spinStateTo">반대 가로 (2)</span></div>
+            <strong id="spinDirectionValue">시계 방향으로 회전</strong>
+            <p id="spinConceptValue">세로로 내린 뒤 마지막 회전으로 홈을 채웁니다.</p>
+            <p id="spinFeedback" class="spin-feedback"></p>
+          </div>
 
           <div id="startOverlay" class="board-overlay start-overlay">
-            <div class="mode-kicker" id="modeKicker">SOLO / 40 LINES</div>
+            <div class="mode-kicker" id="modeKicker">40 LINES</div>
             <h1 id="modeTitle">40 LINES</h1>
             <p id="modeDescription">40줄을 가능한 한 빠르게 제거하세요.</p>
-            <div class="pb-line"><span>PERSONAL BEST</span><b id="pbValue">—</b></div>
-            <button id="startButton" class="primary-button" type="button"><span>START</span><kbd>SPACE</kbd></button>
-            <div class="start-options">
-              <label><input id="proModeToggle" type="checkbox" checked /><i></i><span>PRO MODE</span></label>
-              <label><input id="finesseAlertToggle" type="checkbox" checked /><i></i><span>FINESSE ALERT</span></label>
-              <label><input id="finesseRetryToggle" type="checkbox" /><i></i><span>RETRY ON FAULT</span></label>
-              <label><input id="strideModeToggle" type="checkbox" /><i></i><span>STRIDE MODE</span></label>
+            <div id="finesseSetup" class="finesse-setup is-hidden">
+              <div id="finesseTypePicker" class="finesse-type-picker" role="group" aria-label="피네스 훈련 유형">
+                <button type="button" data-finesse-type="floor" aria-pressed="true">FLOOR</button>
+                <button type="button" data-finesse-type="stack" aria-pressed="false">STACK</button>
+                <button type="button" data-finesse-type="flow" aria-pressed="false">FLOW</button>
+              </div>
+              <div id="finesseDrillFilters" class="finesse-drill-filters">
+                <div class="finesse-presets" aria-label="피네스 훈련 방식">
+                  <button id="finesseAllButton" class="is-active" type="button">ALL</button>
+                  <button id="finesseWeakButton" type="button">WEAK</button>
+                </div>
+                <span class="finesse-filter-label">PIECES</span>
+                <div id="finessePiecePicker" class="finesse-piece-picker" role="group" aria-label="훈련할 미노">
+                  <button type="button" data-piece="I" aria-pressed="true">I</button>
+                  <button type="button" data-piece="J" aria-pressed="true">J</button>
+                  <button type="button" data-piece="L" aria-pressed="true">L</button>
+                  <button type="button" data-piece="O" aria-pressed="true">O</button>
+                  <button type="button" data-piece="S" aria-pressed="true">S</button>
+                  <button type="button" data-piece="T" aria-pressed="true">T</button>
+                  <button type="button" data-piece="Z" aria-pressed="true">Z</button>
+                </div>
+                <span class="finesse-filter-label">ORIENTATION</span>
+                <div id="finesseRotationPicker" class="finesse-filter-picker finesse-rotation-picker" role="group" aria-label="목표 방향">
+                  <button type="button" data-rotation="0" aria-pressed="true">UP</button>
+                  <button type="button" data-rotation="1" aria-pressed="true">RIGHT</button>
+                  <button type="button" data-rotation="2" aria-pressed="true">DOWN</button>
+                  <button type="button" data-rotation="3" aria-pressed="true">LEFT</button>
+                </div>
+                <span class="finesse-filter-label">LEFT EDGE</span>
+                <div id="finesseColumnPicker" class="finesse-filter-picker finesse-column-picker" role="group" aria-label="목표의 왼쪽 끝 열">
+                  <button type="button" data-column="0" aria-pressed="true">1</button>
+                  <button type="button" data-column="1" aria-pressed="true">2</button>
+                  <button type="button" data-column="2" aria-pressed="true">3</button>
+                  <button type="button" data-column="3" aria-pressed="true">4</button>
+                  <button type="button" data-column="4" aria-pressed="true">5</button>
+                  <button type="button" data-column="5" aria-pressed="true">6</button>
+                  <button type="button" data-column="6" aria-pressed="true">7</button>
+                  <button type="button" data-column="7" aria-pressed="true">8</button>
+                  <button type="button" data-column="8" aria-pressed="true">9</button>
+                  <button type="button" data-column="9" aria-pressed="true">10</button>
+                </div>
+              </div>
+              <div class="finesse-setup-summary">
+                <span id="finessePresetLabel">FULL CYCLE</span>
+                <b><span id="finesseCaseCount">162</span> <span id="finesseCaseUnit">CASES</span></b>
+                <button id="masteryMapButton" type="button">MASTERY MAP</button>
+              </div>
             </div>
+            <div id="spinSetup" class="spin-setup is-hidden">
+              <span class="spin-filter-label spin-filter-label-first">COACH</span>
+              <div id="spinStylePicker" class="spin-style-picker" role="group" aria-label="스핀 연습 도움 수준">
+                <button type="button" data-spin-style="guided" aria-pressed="true">COACH ON<small>예시 입력과 원리 표시</small></button>
+                <button type="button" data-spin-style="recall" aria-pressed="false">COACH OFF<small>필드만 보고 해결</small></button>
+              </div>
+              <span class="spin-filter-label">CLEAR RULE</span>
+              <div id="spinValidationPicker" class="spin-validation-picker" role="group" aria-label="스핀 성공 판정 기준">
+                <button type="button" data-spin-validation="technique" aria-pressed="true">TECHNIQUE<small>NEO · FIN까지 구분</small></button>
+                <button type="button" data-spin-validation="placement" aria-pressed="false">PLACEMENT<small>최종 배치만 일치</small></button>
+              </div>
+              <span class="spin-filter-label">LESSON</span>
+              <div id="spinPresetPicker" class="spin-preset-picker" role="group" aria-label="스핀 레슨">
+                <button type="button" data-spin-preset="basics" aria-pressed="true">BASICS</button>
+                <button type="button" data-spin-preset="all" aria-pressed="false">ALL SPINS</button>
+                <button type="button" data-spin-preset="weak" aria-pressed="false">WEAK</button>
+              </div>
+              <span class="spin-filter-label">PIECES</span>
+              <div id="spinPiecePicker" class="spin-piece-picker" role="group" aria-label="연습할 스핀 미노">
+                <button type="button" data-spin-piece="T" aria-pressed="true">T</button>
+                <button type="button" data-spin-piece="S" aria-pressed="true">S</button>
+                <button type="button" data-spin-piece="Z" aria-pressed="true">Z</button>
+                <button type="button" data-spin-piece="L" aria-pressed="false">L</button>
+                <button type="button" data-spin-piece="J" aria-pressed="false">J</button>
+                <button type="button" data-spin-piece="I" aria-pressed="false">I</button>
+              </div>
+              <div class="spin-setup-summary">
+                <span id="spinPresetLabel">BEGINNER CYCLE</span>
+                <b><span id="spinCaseCount">8</span> CASES</b>
+                <button id="spinGuideButton" type="button">SPIN GUIDE</button>
+              </div>
+            </div>
+            <div id="pbLine" class="pb-line"><span>PERSONAL BEST</span><b id="pbValue">—</b></div>
+            <button id="startButton" class="primary-button" type="button"><span>START</span><kbd>SPACE</kbd></button>
           </div>
 
           <div id="countdownOverlay" class="board-overlay countdown-overlay is-hidden">
@@ -103,10 +180,9 @@
           </div>
 
           <div id="resultOverlay" class="board-overlay result-overlay is-hidden">
-            <div id="resultKicker" class="mode-kicker">RUN COMPLETE</div>
             <h2 id="resultTime">00:00.000</h2>
-            <div id="resultBadge" class="result-badge">COMPLETE</div>
-            <div class="result-grid">
+            <div id="resultBadge" class="result-badge"></div>
+            <div class="result-grid pro-only">
               <div><span>PPS</span><b id="resultPps">0.00</b></div>
               <div><span>KPP</span><b id="resultKpp">0.00</b></div>
               <div><span>FINESSE</span><b id="resultFinesse">0</b></div>
@@ -118,37 +194,108 @@
               <button id="exportReplayButton" type="button">EXPORT REPLAY</button>
             </div>
           </div>
+
+          <div id="masteryOverlay" class="board-overlay mastery-overlay is-hidden" role="dialog" aria-modal="true" aria-labelledby="masteryTitle">
+            <div class="mastery-header">
+              <div>
+                <span>FINESSE PROGRESS</span>
+                <h2 id="masteryTitle">MASTERY MAP</h2>
+              </div>
+              <button id="closeMasteryButton" type="button" aria-label="숙련도 맵 닫기">×</button>
+            </div>
+            <div class="mastery-summary" aria-live="polite">
+              <span>PRACTICED <b id="masteryPracticed">0/162</b></span>
+              <span>MASTERED <b id="masteryMastered">0/162</b></span>
+            </div>
+            <div id="masteryPieceTabs" class="mastery-piece-tabs" role="tablist" aria-label="미노별 숙련도">
+              <button type="button" data-mastery-piece="I" role="tab" aria-selected="true">I</button>
+              <button type="button" data-mastery-piece="J" role="tab" aria-selected="false">J</button>
+              <button type="button" data-mastery-piece="L" role="tab" aria-selected="false">L</button>
+              <button type="button" data-mastery-piece="O" role="tab" aria-selected="false">O</button>
+              <button type="button" data-mastery-piece="S" role="tab" aria-selected="false">S</button>
+              <button type="button" data-mastery-piece="T" role="tab" aria-selected="false">T</button>
+              <button type="button" data-mastery-piece="Z" role="tab" aria-selected="false">Z</button>
+            </div>
+            <div id="masteryCaseGrid" class="mastery-case-grid" role="grid" aria-label="선택한 미노의 피네스 케이스"></div>
+            <div id="masteryCaseDetail" class="mastery-case-detail">SELECT A CASE</div>
+            <div class="mastery-legend" aria-label="숙련 단계 범례">
+              <span data-level="untried">— UNTRIED</span>
+              <span data-level="learning">L LEARNING</span>
+              <span data-level="solid">S SOLID</span>
+              <span data-level="mastered">M MASTERED</span>
+            </div>
+          </div>
+
+          <div id="spinGuideOverlay" class="board-overlay spin-guide-overlay is-hidden" role="dialog" aria-modal="true" aria-labelledby="spinGuideTitle">
+            <div class="spin-guide-header">
+              <div><span>BEGINNER SPIN GUIDE</span><h2 id="spinGuideTitle">SPIN PRINCIPLE</h2></div>
+              <button id="closeSpinGuideButton" type="button" aria-label="스핀 가이드 닫기">×</button>
+            </div>
+            <div id="spinGuideTabs" class="spin-guide-tabs" role="tablist" aria-label="미노별 스핀 가이드">
+              <button type="button" data-spin-guide="PRINCIPLE" role="tab" aria-selected="true">WHY</button>
+              <button type="button" data-spin-guide="T" role="tab" aria-selected="false">T</button>
+              <button type="button" data-spin-guide="S" role="tab" aria-selected="false">S</button>
+              <button type="button" data-spin-guide="Z" role="tab" aria-selected="false">Z</button>
+              <button type="button" data-spin-guide="L" role="tab" aria-selected="false">L</button>
+              <button type="button" data-spin-guide="J" role="tab" aria-selected="false">J</button>
+              <button type="button" data-spin-guide="I" role="tab" aria-selected="false">I</button>
+            </div>
+            <p id="spinGuideBody" class="spin-guide-lead"></p>
+            <div id="spinGuideCaseTabs" class="spin-guide-case-tabs" role="tablist" aria-label="진입 방향과 시작 상태 선택"></div>
+            <section class="spin-guide-route" aria-labelledby="spinGuideRouteTitle">
+              <header>
+                <span id="spinGuideEntryLabel">왼쪽으로 넣기</span>
+                <b id="spinGuideRouteTitle">처음 가로 (0) → 오른쪽 세로 (R)</b>
+              </header>
+              <div class="spin-guide-legend" aria-label="보드 그림 범례">
+                <span data-guide-legend="terrain">쌓인 블록</span>
+                <span data-guide-legend="piece">현재 미노</span>
+                <span data-guide-legend="target">들어갈 자리</span>
+              </div>
+              <div class="spin-guide-steps">
+                <div class="spin-guide-board-step">
+                  <span>1 · 회전 전</span>
+                  <div id="spinGuideBeforeGrid" class="spin-route-grid" aria-label="회전 전 보드"></div>
+                  <small id="spinGuideBeforeLabel">처음 가로 (0)에서 대기</small>
+                </div>
+                <div class="spin-guide-input-step">
+                  <span>2 · 누를 키</span>
+                  <kbd id="spinGuideInputKey">↻ 시계</kbd>
+                  <strong id="spinGuideKickLabel">회전 보정 ← 1칸</strong>
+                </div>
+                <div class="spin-guide-board-step">
+                  <span>3 · 킥 후</span>
+                  <div id="spinGuideAfterGrid" class="spin-route-grid" aria-label="회전 후 보드"></div>
+                  <small id="spinGuideAfterLabel">오른쪽 세로 (R)로 슬롯 진입</small>
+                </div>
+              </div>
+              <p id="spinGuideRouteExplanation"></p>
+            </section>
+            <section id="spinGuideStateLesson" class="spin-guide-state-lesson" aria-labelledby="spinGuideStateLessonTitle">
+              <span id="spinGuideStateLessonTitle">회전 전 모양과 돌리는 방향</span>
+              <div id="spinGuideStateRows"></div>
+            </section>
+            <div class="spin-guide-copy"><ul id="spinGuidePoints"></ul></div>
+            <button id="practiceSpinGuideButton" class="spin-guide-practice" type="button">이 미노를 연습 목록에 넣기</button>
+          </div>
         </div>
 
-        <div class="handling-strip" aria-label="현재 핸들링">
-          <div><span>ARR</span><b id="arrHud">2.0F</b></div>
-          <div><span>DAS</span><b id="dasHud">12.0F</b></div>
-          <div><span>DCD</span><b id="dcdHud">0.0F</b></div>
-          <div><span>SDF</span><b id="sdfHud">6×</b></div>
-          <button id="handlingEditButton" type="button">EDIT</button>
-        </div>
       </section>
 
       <aside class="side side-right">
         <section class="piece-panel next-panel">
           <header><span>NEXT</span><small>5</small></header>
           <div class="next-list">
-            <canvas class="next-canvas is-first" width="160" height="104"></canvas>
-            <canvas class="next-canvas" width="160" height="82"></canvas>
-            <canvas class="next-canvas" width="160" height="82"></canvas>
-            <canvas class="next-canvas" width="160" height="82"></canvas>
-            <canvas class="next-canvas" width="160" height="82"></canvas>
+            <canvas class="next-canvas is-first" width="320" height="208"></canvas>
+            <canvas class="next-canvas" width="320" height="164"></canvas>
+            <canvas class="next-canvas" width="320" height="164"></canvas>
+            <canvas class="next-canvas" width="320" height="164"></canvas>
+            <canvas class="next-canvas" width="320" height="164"></canvas>
           </div>
         </section>
 
-        <section class="stat-stack pro-only finesse-stack">
-          <div class="big-stat"><span>FINESSE</span><strong id="finesseValue">0</strong></div>
-          <div class="small-stat-row"><span>PPS</span><b id="ppsValue">0.00</b></div>
-          <div class="small-stat-row"><span>APP</span><b id="appValue">0.00</b></div>
-        </section>
-
         <section class="key-hints">
-          <header><span>CONTROLS</span><small>LIVE</small></header>
+          <header><span>CONTROLS</span><small>KEYS</small></header>
           <div><kbd id="hintLeft">←</kbd><span>MOVE</span><kbd id="hintRight">→</kbd></div>
           <div><kbd id="hintCcw">Z</kbd><span>ROTATE</span><kbd id="hintCw">↑</kbd></div>
           <div><kbd id="hintHold">C</kbd><span>HOLD</span><kbd id="hintHard">SPACE</kbd></div>
@@ -158,8 +305,8 @@
     </main>
 
     <footer class="footerbar">
-      <div><span class="status-dot"></span><b id="statusText">READY</b><small id="latencyText">INPUT QUEUE 0.0 ms</small></div>
-      <p>독립 제작 연습 도구 · 원본 로고, 음원, 그래픽 자산을 사용하지 않습니다.</p>
+      <div><span class="status-dot"></span><b id="statusText">READY</b></div>
+      <p><kbd>SPACE</kbd> 시작 <span>·</span> <kbd>ESC</kbd> 일시정지 <span>·</span> <kbd>R</kbd> 다시 시작</p>
       <div class="footer-actions"><button id="sameSeedRestartButton" type="button">SAME SEED</button><button id="footerRestartButton" type="button">RESTART <kbd>R</kbd></button></div>
     </footer>
   </div>
@@ -167,7 +314,7 @@
   <div id="settingsBackdrop" class="settings-backdrop is-hidden"></div>
   <aside id="settingsPanel" class="settings-panel is-hidden" aria-label="설정" aria-modal="true" role="dialog">
     <header class="settings-header">
-      <div><span>STACK//LAB</span><h2>CONFIG</h2></div>
+      <div><span>STACK LAB</span><h2>SETTINGS</h2></div>
       <button id="closeSettingsButton" class="icon-button" type="button" aria-label="설정 닫기">×</button>
     </header>
 
@@ -252,6 +399,10 @@
           <label class="toggle-card"><input id="ghostToggle" type="checkbox" /><i></i><span><b>GHOST PIECE</b><small>착지 위치를 미리 표시</small></span></label>
           <label class="toggle-card"><input id="holdEnabledToggle" type="checkbox" /><i></i><span><b>ENABLE HOLD</b><small>한 조각당 한 번 홀드 허용</small></span></label>
           <label class="toggle-card"><input id="allow180Toggle" type="checkbox" /><i></i><span><b>ALLOW 180°</b><small>전용 180도 회전 키 활성화</small></span></label>
+          <label class="toggle-card"><input id="proModeToggle" type="checkbox" checked /><i></i><span><b>ADVANCED METRICS</b><small>결과 화면에 세부 기록 표시</small></span></label>
+          <label class="toggle-card"><input id="finesseAlertToggle" type="checkbox" checked /><i></i><span><b>FINESSE ALERT</b><small>불필요한 입력을 플레이 중 알림</small></span></label>
+          <label class="toggle-card"><input id="finesseRetryToggle" type="checkbox" /><i></i><span><b>RETRY ON FAULT</b><small>피네스 오류 시 같은 시드로 재시작</small></span></label>
+          <label class="toggle-card"><input id="strideModeToggle" type="checkbox" /><i></i><span><b>STRIDE MODE</b><small>READY–SET–GO 시작 시퀀스 사용</small></span></label>
         </div>
       </section>
 
@@ -263,7 +414,7 @@
         <div class="range-setting"><div><label for="ghostOpacityRange">SHADOW VISIBILITY</label><p>고스트 조각 투명도.</p></div><output id="ghostOpacityOutput">28%</output><input id="ghostOpacityRange" type="range" min="0" max="100" step="1" /><input id="ghostOpacityNumber" class="number-input" type="number" min="0" max="100" step="1" /></div>
         <div class="range-setting"><div><label for="bounceRange">BOARD BOUNCINESS</label><p>고정·줄 제거 시 보드 반동 강도.</p></div><output id="bounceOutput">55%</output><input id="bounceRange" type="range" min="0" max="100" step="1" /><input id="bounceNumber" class="number-input" type="number" min="0" max="100" step="1" /></div>
         <div class="range-setting"><div><label for="particlesRange">PARTICLE COUNT</label><p>줄 제거·하드드롭 시 시각 효과 밀도.</p></div><output id="particlesOutput">65%</output><input id="particlesRange" type="range" min="0" max="100" step="1" /><input id="particlesNumber" class="number-input" type="number" min="0" max="100" step="1" /></div>
-        <div class="range-setting"><div><label for="volumeRange">SFX VOLUME</label><p>브라우저에서 합성되는 독립 효과음 볼륨.</p></div><output id="volumeOutput">55%</output><input id="volumeRange" type="range" min="0" max="100" step="1" /><input id="volumeNumber" class="number-input" type="number" min="0" max="100" step="1" /></div>
+        <div class="range-setting"><div><label for="volumeRange">SFX VOLUME</label><p>게임 효과음 볼륨.</p></div><output id="volumeOutput">55%</output><input id="volumeRange" type="range" min="0" max="100" step="1" /><input id="volumeNumber" class="number-input" type="number" min="0" max="100" step="1" /></div>
         <div class="toggle-grid">
           <label class="toggle-card"><input id="coloredGhostToggle" type="checkbox" /><i></i><span><b>COLORED SHADOW</b><small>고스트에 조각 색상 적용</small></span></label>
           <label class="toggle-card"><input id="hardDropTrailToggle" type="checkbox" /><i></i><span><b>HARD DROP TRAIL</b><small>하드드롭 경로를 짧게 표시</small></span></label>
@@ -275,14 +426,9 @@
         <div class="section-heading"><div><span>LOCAL STORAGE</span><h3>DATA</h3></div></div>
         <div class="data-card"><div><b>EXPORT SETTINGS</b><p>핸들링, 키 설정, 게임플레이 및 시각 설정을 JSON으로 저장합니다.</p></div><button id="exportSettingsButton" type="button">EXPORT</button></div>
         <div class="data-card"><div><b>IMPORT SETTINGS</b><p>이 앱에서 내보낸 설정 파일을 불러옵니다.</p></div><button id="importSettingsButton" type="button">IMPORT</button><input id="importSettingsInput" type="file" accept="application/json,.json" hidden /></div>
-        <div class="data-card"><div><b>IMPORT REPLAY</b><p>프레임 단위 입력과 시드가 기록된 STACK//LAB 리플레이를 재생합니다.</p></div><button id="importReplayButton" type="button">IMPORT</button><input id="importReplayInput" type="file" accept="application/json,.json" hidden /></div>
+        <div class="data-card"><div><b>IMPORT REPLAY</b><p>저장한 플레이 기록을 불러와 다시 봅니다.</p></div><button id="importReplayButton" type="button">IMPORT</button><input id="importReplayInput" type="file" accept="application/json,.json" hidden /></div>
         <div class="data-card danger-card"><div><b>RESET ALL LOCAL DATA</b><p>설정과 개인 기록을 모두 기본값으로 되돌립니다.</p></div><button id="resetAllDataButton" type="button">RESET ALL</button></div>
-        <div class="about-card">
-          <b>IMPLEMENTATION NOTES</b>
-          <p>10×40 플레이필드, 5 NEXT, 홀드, 시드 기반 7-bag, 고정 60Hz 시뮬레이션, SRS/SRS+ 90° 킥과 180° 킥, DAS/ARR/DCD/SDF, IRS/IHS, 락 딜레이 및 리셋 제한을 독립 구현했습니다.</p>
-          <p>이는 비공식 독립 연습 도구이며 원본 클라이언트 코드·서버·음원·로고·그래픽 자산을 포함하지 않습니다.</p>
-          <span id="buildLabel">BUILD 1.0.0</span>
-        </div>
+        <span id="buildLabel" class="visually-hidden">BUILD 1.0.0</span>
       </section>
     </div>
 

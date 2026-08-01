@@ -5,9 +5,11 @@ const BOARD_W = 10;
 const BOARD_H = 40;
 const VISIBLE_H = 20;
 const VISIBLE_START = BOARD_H - VISIBLE_H;
-const CELL = 60;
+const CELL = 80;
 const STORAGE_CONFIG = 'stacklab.config.v1';
 const STORAGE_PB = 'stacklab.pb.v1';
+const STORAGE_FINESSE = 'stacklab.finesse.v1';
+const STORAGE_SPIN = 'stacklab.spin.v1';
 
 const $ = (id: string): any => document.getElementById(id);
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
@@ -28,13 +30,13 @@ const deepMerge = (base: any, patch: any): any => {
 
 const PIECES = ['I', 'J', 'L', 'O', 'S', 'T', 'Z'];
 const PIECE_COLORS = {
-  I: '#5fe9f4',
-  J: '#6f89ff',
-  L: '#ffb14b',
-  O: '#ffe56b',
-  S: '#67e79b',
-  T: '#bc7cff',
-  Z: '#ff6680',
+  I: '#38d9e6',
+  J: '#5b74f4',
+  L: '#f5a03a',
+  O: '#f7d84a',
+  S: '#4dd184',
+  T: '#a966e8',
+  Z: '#f15370',
 };
 
 const SHAPES = {
@@ -187,7 +189,7 @@ const PRESET_ALIASES = {
 const DEFAULT_CONFIG = {
   handling: {
     arr: 2,
-    das: 12,
+    das: 10,
     dcd: 0,
     sdf: 6,
     sdfMax: false,
@@ -226,6 +228,17 @@ const DEFAULT_CONFIG = {
     coloredGhost: true,
     hardDropTrail: true,
     reducedMotion: false,
+  },
+  training: {
+    finesseType: 'floor',
+    finessePreset: 'all',
+    finessePieces: deepClone(PIECES),
+    finesseRotations: [0, 1, 2, 3],
+    finesseColumns: Array.from({ length: BOARD_W }, (_, index) => index),
+    spinStyle: 'guided',
+    spinValidation: 'technique',
+    spinPreset: 'basics',
+    spinPieces: ['T', 'S', 'Z'],
   },
   ui: {
     mode: 'sprint',
@@ -279,7 +292,24 @@ const sanitizeConfig = (candidate: any): any => {
   cfg.visual.coloredGhost = Boolean(cfg.visual.coloredGhost);
   cfg.visual.hardDropTrail = Boolean(cfg.visual.hardDropTrail);
   cfg.visual.reducedMotion = Boolean(cfg.visual.reducedMotion);
-  if (!['sprint', 'zen', 'custom'].includes(cfg.ui.mode)) cfg.ui.mode = 'sprint';
+  if (!['floor', 'stack', 'flow'].includes(cfg.training.finesseType)) cfg.training.finesseType = 'floor';
+  if (!['all', 'custom', 'weak'].includes(cfg.training.finessePreset)) cfg.training.finessePreset = 'all';
+  const finessePieces = Array.isArray(cfg.training.finessePieces) ? cfg.training.finessePieces : PIECES;
+  cfg.training.finessePieces = PIECES.filter((piece) => finessePieces.includes(piece));
+  if (!cfg.training.finessePieces.length) cfg.training.finessePieces = deepClone(PIECES);
+  const finesseRotations = Array.isArray(cfg.training.finesseRotations) ? cfg.training.finesseRotations : [0, 1, 2, 3];
+  cfg.training.finesseRotations = [0, 1, 2, 3].filter((rotation) => finesseRotations.includes(rotation));
+  if (!cfg.training.finesseRotations.length) cfg.training.finesseRotations = [0, 1, 2, 3];
+  const finesseColumns = Array.isArray(cfg.training.finesseColumns) ? cfg.training.finesseColumns : Array.from({ length: BOARD_W }, (_, index) => index);
+  cfg.training.finesseColumns = Array.from({ length: BOARD_W }, (_, index) => index).filter((column) => finesseColumns.includes(column));
+  if (!cfg.training.finesseColumns.length) cfg.training.finesseColumns = Array.from({ length: BOARD_W }, (_, index) => index);
+  if (!['guided', 'recall'].includes(cfg.training.spinStyle)) cfg.training.spinStyle = 'guided';
+  if (!['technique', 'placement'].includes(cfg.training.spinValidation)) cfg.training.spinValidation = 'technique';
+  if (!['basics', 'all', 'states', 'weak', 'custom'].includes(cfg.training.spinPreset)) cfg.training.spinPreset = 'basics';
+  const spinPieces = Array.isArray(cfg.training.spinPieces) ? cfg.training.spinPieces : ['T', 'S', 'Z'];
+  cfg.training.spinPieces = ['T', 'S', 'Z', 'L', 'J', 'I'].filter((piece) => spinPieces.includes(piece));
+  if (!cfg.training.spinPieces.length) cfg.training.spinPieces = ['T', 'S', 'Z'];
+  if (!['sprint', 'zen', 'custom', 'finesse', 'spin'].includes(cfg.ui.mode)) cfg.ui.mode = 'sprint';
   cfg.ui.proMode = Boolean(cfg.ui.proMode);
   cfg.ui.finesseAlert = Boolean(cfg.ui.finesseAlert);
   cfg.ui.retryOnFinesse = Boolean(cfg.ui.retryOnFinesse);
@@ -337,6 +367,8 @@ export {
   CELL,
   STORAGE_CONFIG,
   STORAGE_PB,
+  STORAGE_FINESSE,
+  STORAGE_SPIN,
   $,
   clamp,
   deepClone,

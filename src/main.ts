@@ -4,7 +4,10 @@ import {
   ACTION_META,
   DEFAULT_CONFIG,
   GUIDELINE_BINDINGS,
+  PIECES,
   STORAGE_CONFIG,
+  STORAGE_FINESSE,
+  STORAGE_SPIN,
   STORAGE_PB,
   TICK_MS,
   VERSION,
@@ -119,7 +122,7 @@ import { createViewportScale } from './ui/viewport-scale';
   };
 
   const setMode = (mode) => {
-    if (!['sprint', 'zen', 'custom'].includes(mode)) return;
+    if (!['sprint', 'finesse', 'spin', 'zen', 'custom'].includes(mode)) return;
     if (game.state !== 'idle') game.resetToIdle();
     game.mode = mode;
     config.ui.mode = mode;
@@ -137,15 +140,8 @@ import { createViewportScale } from './ui/viewport-scale';
   };
 
   const updateAudioButton = () => {
-    $('audioButton').textContent = config.ui.audioEnabled ? '◖' : '⊘';
+    $('audioButton').setAttribute('aria-pressed', String(config.ui.audioEnabled));
     $('audioButton').classList.toggle('is-muted', !config.ui.audioEnabled);
-  };
-
-  const updateHandlingHUD = () => {
-    $('arrHud').textContent = `${config.handling.arr.toFixed(1)}F`;
-    $('dasHud').textContent = `${config.handling.das.toFixed(1)}F`;
-    $('dcdHud').textContent = `${config.handling.dcd.toFixed(1)}F`;
-    $('sdfHud').textContent = config.handling.sdfMax ? 'MAX' : `${config.handling.sdf}×`;
   };
 
   const updateControlHints = () => {
@@ -199,7 +195,6 @@ import { createViewportScale } from './ui/viewport-scale';
       r.value = String(value);
       if (n) n.value = String(value);
       o.textContent = format(value);
-      updateHandlingHUD();
       applyVisualConfig();
       scheduleSave();
     };
@@ -270,14 +265,12 @@ import { createViewportScale } from './ui/viewport-scale';
     config.handling.sdfMax = value >= 41;
     config.handling.sdf = config.handling.sdfMax ? 40 : value;
     $('sdfOutput').textContent = config.handling.sdfMax ? 'MAX' : `${config.handling.sdf}×`;
-    updateHandlingHUD();
     scheduleSave();
   });
   $('sdfMaxButton').addEventListener('click', () => {
     config.handling.sdfMax = !config.handling.sdfMax;
     $('sdfRange').value = config.handling.sdfMax ? '41' : String(config.handling.sdf);
     $('sdfOutput').textContent = config.handling.sdfMax ? 'MAX' : `${config.handling.sdf}×`;
-    updateHandlingHUD();
     scheduleSave();
   });
   $('gamepadSensitivityRange').addEventListener('input', () => {
@@ -299,7 +292,6 @@ import { createViewportScale } from './ui/viewport-scale';
     $('finesseRetryToggle').checked = config.ui.retryOnFinesse;
     $('strideModeToggle').checked = config.ui.strideMode;
     renderBindings();
-    updateHandlingHUD();
     updateControlHints();
     applyVisualConfig();
   };
@@ -351,9 +343,135 @@ import { createViewportScale } from './ui/viewport-scale';
   });
 
   document.querySelectorAll('.mode-tab').forEach((button: any) => button.addEventListener('click', () => setMode(button.dataset.mode)));
+  document.querySelectorAll('#finesseTypePicker [data-finesse-type]').forEach((button: any) => button.addEventListener('click', () => {
+    config.training.finesseType = button.dataset.finesseType;
+    game.updateModeUI();
+    scheduleSave();
+  }));
+  const updateFinessePresetFromFilters = () => {
+    const allSelected = config.training.finessePieces.length === PIECES.length
+      && config.training.finesseRotations.length === 4
+      && config.training.finesseColumns.length === 10;
+    config.training.finessePreset = allSelected ? 'all' : 'custom';
+  };
+  $('finesseAllButton').addEventListener('click', () => {
+    config.training.finessePreset = 'all';
+    config.training.finessePieces = [...PIECES];
+    config.training.finesseRotations = [0, 1, 2, 3];
+    config.training.finesseColumns = Array.from({ length: 10 }, (_, index) => index);
+    game.updateFinesseSetup();
+    scheduleSave();
+  });
+  $('finesseWeakButton').addEventListener('click', () => {
+    config.training.finessePreset = 'weak';
+    game.updateFinesseSetup();
+    scheduleSave();
+  });
+  document.querySelectorAll('#finessePiecePicker [data-piece]').forEach((button: any) => button.addEventListener('click', () => {
+    const selected = new Set(config.training.finessePieces);
+    if (selected.has(button.dataset.piece)) {
+      if (selected.size <= 1) return;
+      selected.delete(button.dataset.piece);
+    } else selected.add(button.dataset.piece);
+    config.training.finessePieces = PIECES.filter((piece) => selected.has(piece));
+    updateFinessePresetFromFilters();
+    game.updateFinesseSetup();
+    scheduleSave();
+  }));
+  const bindFinesseNumberFilter = (selector, key, dataKey, allowedValues) => {
+    document.querySelectorAll(selector).forEach((button: any) => button.addEventListener('click', () => {
+      const value = Number(button.dataset[dataKey]);
+      const selected = new Set(config.training[key]);
+      if (selected.has(value)) {
+        if (selected.size <= 1) return;
+        selected.delete(value);
+      } else selected.add(value);
+      config.training[key] = allowedValues.filter((candidate) => selected.has(candidate));
+      updateFinessePresetFromFilters();
+      game.updateFinesseSetup();
+      scheduleSave();
+    }));
+  };
+  bindFinesseNumberFilter('#finesseRotationPicker [data-rotation]', 'finesseRotations', 'rotation', [0, 1, 2, 3]);
+  bindFinesseNumberFilter('#finesseColumnPicker [data-column]', 'finesseColumns', 'column', Array.from({ length: 10 }, (_, index) => index));
+  document.querySelectorAll('#spinStylePicker [data-spin-style]').forEach((button: any) => button.addEventListener('click', () => {
+    config.training.spinStyle = button.dataset.spinStyle;
+    game.updateSpinSetup();
+    scheduleSave();
+  }));
+  document.querySelectorAll('#spinValidationPicker [data-spin-validation]').forEach((button: any) => button.addEventListener('click', () => {
+    config.training.spinValidation = button.dataset.spinValidation;
+    game.updateSpinSetup();
+    scheduleSave();
+  }));
+  document.querySelectorAll('#spinPresetPicker [data-spin-preset]').forEach((button: any) => button.addEventListener('click', () => {
+    const preset = button.dataset.spinPreset;
+    config.training.spinPreset = preset;
+    if (preset === 'basics') config.training.spinPieces = ['T', 'S', 'Z'];
+    else if (preset === 'all') config.training.spinPieces = ['T', 'S', 'Z', 'L', 'J', 'I'];
+    else if (preset === 'weak') config.training.spinPieces = ['T', 'S', 'Z', 'L', 'J', 'I'];
+    game.updateSpinSetup();
+    scheduleSave();
+  }));
+  document.querySelectorAll('#spinPiecePicker [data-spin-piece]').forEach((button: any) => button.addEventListener('click', () => {
+    const order = ['T', 'S', 'Z', 'L', 'J', 'I'];
+    const selected = new Set(config.training.spinPieces);
+    if (selected.has(button.dataset.spinPiece)) {
+      if (selected.size <= 1) return;
+      selected.delete(button.dataset.spinPiece);
+    } else selected.add(button.dataset.spinPiece);
+    config.training.spinPieces = order.filter((piece) => selected.has(piece));
+    game.updateSpinSetup();
+    scheduleSave();
+  }));
+  $('spinGuideButton').addEventListener('click', () => game.openSpinGuide());
+  $('closeSpinGuideButton').addEventListener('click', () => game.closeSpinGuide());
+  document.querySelectorAll('#spinGuideTabs [data-spin-guide]').forEach((button: any) => button.addEventListener('click', () => {
+    game.renderSpinGuide(button.dataset.spinGuide);
+  }));
+  const selectSpinGuideCase = (event) => {
+    const button = (event.target as HTMLElement).closest('[data-spin-case-id]') as HTMLElement | null;
+    if (button) game.renderSpinGuideCase(button.dataset.spinCaseId);
+  };
+  $('spinGuideCaseTabs').addEventListener('click', selectSpinGuideCase);
+  $('spinGuideStateRows').addEventListener('click', selectSpinGuideCase);
+  $('practiceSpinGuideButton').addEventListener('click', () => game.practiceCurrentSpinGuide());
+  $('masteryMapButton').addEventListener('click', () => game.openMasteryMap());
+  $('closeMasteryButton').addEventListener('click', () => game.closeMasteryMap());
+  document.querySelectorAll('#masteryPieceTabs [data-mastery-piece]').forEach((button: any) => button.addEventListener('click', () => {
+    game.renderMasteryMap(button.dataset.masteryPiece);
+  }));
+  $('masteryCaseGrid').addEventListener('click', (event) => {
+    const button = (event.target as HTMLElement).closest('[data-case-id]') as HTMLElement | null;
+    if (button) game.showMasteryCase(button.dataset.caseId);
+  });
+  window.addEventListener('keydown', (event) => {
+    const activeOverlay = !$('spinGuideOverlay').classList.contains('is-hidden') ? $('spinGuideOverlay')
+      : !$('masteryOverlay').classList.contains('is-hidden') ? $('masteryOverlay') : null;
+    if (!activeOverlay) return;
+    if (event.code === 'Escape') {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      if (activeOverlay.id === 'spinGuideOverlay') game.closeSpinGuide();
+      else game.closeMasteryMap();
+      return;
+    }
+    if (event.code === 'Tab') {
+      const focusable = [...activeOverlay.querySelectorAll('button:not(:disabled)')] as HTMLElement[];
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+  }, true);
   document.querySelectorAll('.settings-tab').forEach((button: any) => button.addEventListener('click', () => selectSettingsTab(button.dataset.tab)));
   $('configButton').addEventListener('click', () => openSettings('handling'));
-  $('handlingEditButton').addEventListener('click', () => openSettings('handling'));
   $('closeSettingsButton').addEventListener('click', closeSettings);
   $('doneSettingsButton').addEventListener('click', closeSettings);
   $('settingsBackdrop').addEventListener('click', closeSettings);
@@ -426,7 +544,9 @@ import { createViewportScale } from './ui/viewport-scale';
   $('resetAllDataButton').addEventListener('click', () => {
     setConfig(deepClone(DEFAULT_CONFIG));
     setPersonalBests({ sprint: null });
-    try { localStorage.removeItem(STORAGE_CONFIG); localStorage.removeItem(STORAGE_PB); } catch (_) {}
+    try { localStorage.removeItem(STORAGE_CONFIG); localStorage.removeItem(STORAGE_PB); localStorage.removeItem(STORAGE_FINESSE); localStorage.removeItem(STORAGE_SPIN); } catch (_) {}
+    game.resetFinesseProgress();
+    game.resetSpinProgress();
     input.rebuildBindings();
     syncSettingsUI();
     game.mode = config.ui.mode;
@@ -442,33 +562,29 @@ import { createViewportScale } from './ui/viewport-scale';
 
   let accumulator = 0;
   let previous = performance.now();
-  let fpsWindowStart = previous;
-  let renderedFrames = 0;
-  let fixedFrame = 0;
+  let simulationTime = previous;
 
   const loop = (now) => {
     input.pollGamepads();
-    const delta = clamp(now - previous, 0, 100);
+    const rawDelta = now - previous;
+    const delta = clamp(rawDelta, 0, 100);
     previous = now;
+    if (rawDelta > 100) simulationTime = now - accumulator - delta;
     accumulator += delta;
     let steps = 0;
     while (accumulator >= TICK_MS && steps < 8) {
-      game.fixedUpdate();
+      const tickStart = simulationTime;
+      simulationTime += TICK_MS;
+      game.fixedUpdate(tickStart, simulationTime);
       accumulator -= TICK_MS;
-      fixedFrame += 1;
       steps += 1;
     }
-    if (steps === 8) accumulator = 0;
+    if (steps === 8) {
+      accumulator = 0;
+      simulationTime = now;
+    }
     renderer.draw(game);
     renderer.drawEffects(now);
-    renderedFrames += 1;
-    if (now - fpsWindowStart >= 500) {
-      const fps = Math.round(renderedFrames * 1000 / (now - fpsWindowStart));
-      $('fpsValue').textContent = String(fps);
-      $('performanceBadge').classList.toggle('is-low', fps < 50);
-      fpsWindowStart = now;
-      renderedFrames = 0;
-    }
     requestAnimationFrame(loop);
   };
   requestAnimationFrame(loop);
