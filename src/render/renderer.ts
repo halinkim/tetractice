@@ -148,6 +148,20 @@ class Renderer {
     ctx.stroke();
     ctx.restore();
   }
+  buildGuideBlock(ctx, x, y, size, color) {
+    const inset = Math.max(5, size * 0.08);
+    const guideColor = this.mix(color, '#fffaf0', 0.32);
+    ctx.save();
+    ctx.fillStyle = guideColor;
+    ctx.globalAlpha = 0.055;
+    ctx.fillRect(x + inset, y + inset, size - inset * 2, size - inset * 2);
+    ctx.globalAlpha = 0.2;
+    ctx.strokeStyle = guideColor;
+    ctx.lineWidth = Math.max(1.5, size * 0.0275);
+    ctx.setLineDash([Math.max(4, size * 0.1), Math.max(4, size * 0.1)]);
+    ctx.strokeRect(x + inset, y + inset, size - inset * 2, size - inset * 2);
+    ctx.restore();
+  }
   mix(a, b, amount) {
     const pa = this.hex(a);
     const pb = this.hex(b);
@@ -180,6 +194,15 @@ class Renderer {
     }
 
     this.drawSprintProgress(game);
+
+    const buildGuide = game.mode === 'build' && game.state !== 'idle' && game.buildGuideCells
+      ? game.buildGuideCells()
+      : [];
+    for (const cell of buildGuide) {
+      if (cell.y < VISIBLE_START) continue;
+      const color = cell.displayType ? PIECE_COLORS[cell.displayType] : '#d9d0df';
+      this.buildGuideBlock(ctx, cell.x * CELL, (cell.y - VISIBLE_START) * CELL, CELL, color);
+    }
 
     const finesseDrill = Boolean(game.isFinesseDrill?.());
     const finesseTarget = finesseDrill ? game.finesseSession?.currentCase : null;

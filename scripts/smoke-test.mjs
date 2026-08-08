@@ -274,6 +274,204 @@ try {
     'SPIN 탭을 선택해도 모바일 가로 스크롤이 생기지 않아야 합니다.',
   );
 
+  await mobile.locator('.mode-tab[data-mode="build"]').click();
+  assert(await mobile.locator('#buildSetup').isVisible(), '모바일에서도 BUILD 설정이 보여야 합니다.');
+  await mobile.locator('#buildPhasePicker [data-build-phase="full"]').click();
+  assert(await mobile.locator('#buildVariantSection').isVisible(), '전체 연습에서도 첫 가방 좌우 선택기가 보여야 합니다.');
+  assert.equal(
+    await mobile.evaluate(() => document.documentElement.scrollWidth > window.innerWidth),
+    false,
+    'BUILD 탭을 선택해도 모바일 가로 스크롤이 생기지 않아야 합니다.',
+  );
+
+  const buildPractice = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+  buildPractice.on('console', (message) => {
+    if (message.type() === 'error') browserErrors.push(`build console: ${message.text()}`);
+  });
+  buildPractice.on('pageerror', (error) => browserErrors.push(`build page: ${error.message}`));
+  await buildPractice.goto(baseUrl, { waitUntil: 'networkidle' });
+  await buildPractice.locator('.mode-tab[data-mode="build"]').click();
+  assert(await buildPractice.locator('#buildSetup').isVisible(), 'DOT CANNON 설정이 보여야 합니다.');
+  assert.equal(await buildPractice.locator('#buildPhasePicker [data-build-phase="bag-1"]').getAttribute('aria-pressed'), 'true');
+  assert(await buildPractice.locator('#buildVariantSection').isVisible(), '1가방 연습에서는 좌우 선택기가 보여야 합니다.');
+  assert.equal(await buildPractice.locator('#buildVariantPicker [data-build-variant="auto"]').getAttribute('aria-pressed'), 'true');
+  assert.equal(await buildPractice.locator('#buildDifficultyPicker [data-build-difficulty="beginner"]').getAttribute('aria-pressed'), 'true');
+  assert.equal(await buildPractice.locator('#buildRetryPicker [data-build-retry="same"]').getAttribute('aria-pressed'), 'true');
+  await buildPractice.locator('#buildPhasePicker [data-build-phase="full"]').click();
+  assert.equal(await buildPractice.locator('#buildPhasePicker [data-build-phase="full"]').getAttribute('aria-pressed'), 'true');
+  assert.equal(await buildPractice.locator('#buildSummaryName').textContent(), 'DOT CANNON · FULL 3 BAGS');
+  assert.equal(await buildPractice.locator('#buildSummaryMeta').textContent(), 'BUILD → TST → PC');
+  assert(await buildPractice.locator('#buildVariantSection').isVisible(), '전체 연습은 첫 가방 좌우 선택을 지원해야 합니다.');
+  await buildPractice.locator('#buildPhasePicker [data-build-phase="pc-3"]').click();
+  assert.equal(await buildPractice.locator('#buildPhasePicker [data-build-phase="pc-3"]').getAttribute('aria-pressed'), 'true');
+  assert.equal(await buildPractice.locator('#buildSummaryName').textContent(), 'DOT CANNON · 3-BAG PC');
+  assert.equal(await buildPractice.locator('#buildSummaryMeta').textContent(), 'SRS+180 · 87.58%');
+  assert.equal(await buildPractice.locator('#buildVariantSection').isVisible(), false, '3가방 PC에서는 첫 가방 전용 선택기를 숨겨야 합니다.');
+  await buildPractice.locator('#buildPhasePicker [data-build-phase="bag-2"]').click();
+  assert.equal(await buildPractice.locator('#buildPhasePicker [data-build-phase="bag-2"]').getAttribute('aria-pressed'), 'true');
+  assert.equal(await buildPractice.locator('#buildSummaryName').textContent(), 'DOT CANNON · BAG 2');
+  assert.equal(await buildPractice.locator('#buildSummaryMeta').textContent(), 'FIXED · 180° · 100%');
+  assert.equal(await buildPractice.locator('#buildVariantSection').isVisible(), false, '2가방에서는 첫 가방 전용 선택기를 숨겨야 합니다.');
+  await buildPractice.locator('#buildPhasePicker [data-build-phase="bag-1"]').click();
+  await buildPractice.locator('#buildVariantPicker [data-build-variant="left-j"]').click();
+  assert.equal(await buildPractice.locator('#buildVariantPicker [data-build-variant="left-j"]').getAttribute('aria-pressed'), 'true');
+  assert.equal(await buildPractice.locator('#buildVariantPicker [data-build-variant="auto"]').getAttribute('aria-pressed'), 'false');
+  assert.equal(await buildPractice.locator('#buildVariantPicker [data-build-variant="right-l"]').getAttribute('aria-pressed'), 'false');
+  assert.equal(await buildPractice.locator('#buildSummaryMeta').textContent(), 'LEFT J · J BEFORE L');
+  await buildPractice.locator('#buildDifficultyPicker [data-build-difficulty="intermediate"]').click();
+  assert.equal(await buildPractice.locator('#buildDifficultyPicker [data-build-difficulty="intermediate"]').getAttribute('aria-pressed'), 'true');
+  await buildPractice.locator('#buildDifficultyPicker [data-build-difficulty="expert"]').click();
+  assert.equal(await buildPractice.locator('#buildDifficultyPicker [data-build-difficulty="expert"]').getAttribute('aria-pressed'), 'true');
+  await buildPractice.locator('#startButton').click();
+  await buildPractice.waitForFunction(
+    () => document.querySelector('#app')?.getAttribute('data-state') === 'playing',
+    undefined,
+    { timeout: 4_000 },
+  );
+  assert.equal(await buildPractice.locator('#buildCoach').isVisible(), false, '고수 모드에서는 설명 패널도 숨겨야 합니다.');
+  await buildPractice.locator('#brandButton').click();
+  await buildPractice.locator('#buildDifficultyPicker [data-build-difficulty="intermediate"]').click();
+  await buildPractice.locator('#startButton').click();
+  await buildPractice.waitForFunction(
+    () => document.querySelector('#app')?.getAttribute('data-state') === 'playing',
+    undefined,
+    { timeout: 4_000 },
+  );
+  assert.equal(await buildPractice.locator('#buildCoachLevel').textContent(), 'INTERMEDIATE SHAPE');
+  assert.equal(await buildPractice.locator('#buildCoachTitle').textContent(), 'BUILD SILHOUETTE');
+  assert.match(
+    await buildPractice.locator('#buildCoachDetail').textContent(),
+    /^전체 외곽만 보고 각 미노의 위치를 판단하세요\. J #[1-7]가 L #[1-7]보다 먼저 · LEFT J 기본형$/,
+  );
+  assert(await buildPractice.locator('#buildCoach').isVisible(), '중수 모드에서는 전체 실루엣 설명이 보여야 합니다.');
+  await buildPractice.locator('#brandButton').click();
+  await buildPractice.locator('#buildDifficultyPicker [data-build-difficulty="beginner"]').click();
+  await buildPractice.locator('#buildVariantPicker [data-build-variant="right-l"]').click();
+  assert.equal(await buildPractice.locator('#buildVariantPicker [data-build-variant="left-j"]').getAttribute('aria-pressed'), 'false');
+  assert.equal(await buildPractice.locator('#buildVariantPicker [data-build-variant="right-l"]').getAttribute('aria-pressed'), 'true');
+  assert.equal(await buildPractice.locator('#buildSummaryMeta').textContent(), 'RIGHT L · L BEFORE J');
+  await buildPractice.locator('#buildRetryPicker [data-build-retry="new"]').click();
+  assert.equal(await buildPractice.locator('#buildRetryPicker [data-build-retry="new"]').getAttribute('aria-pressed'), 'true');
+  await buildPractice.locator('#buildRetryPicker [data-build-retry="same"]').click();
+  if (process.env.SMOKE_BUILD_SETUP_SCREENSHOT) {
+    const screenshotPath = path.resolve(process.env.SMOKE_BUILD_SETUP_SCREENSHOT);
+    await mkdir(path.dirname(screenshotPath), { recursive: true });
+    await buildPractice.screenshot({ path: screenshotPath });
+  }
+  await buildPractice.locator('#startButton').click();
+  await buildPractice.waitForFunction(
+    () => document.querySelector('#app')?.getAttribute('data-state') === 'playing',
+    undefined,
+    { timeout: 4_000 },
+  );
+  assert.equal(await buildPractice.locator('#statusText').textContent(), 'TRAINING');
+  assert.equal(await buildPractice.locator('#objectiveLabel').textContent(), 'MINOS LEFT');
+  assert.equal(await buildPractice.locator('#objectiveValue').textContent(), '7');
+  assert.equal(await buildPractice.locator('#holdPanelLabel').textContent(), 'HOLD');
+  assert(await buildPractice.locator('#buildCoach').isVisible(), '초보 모드에서는 목표 가이드가 보여야 합니다.');
+  assert.equal(await buildPractice.locator('#buildCoachLevel').textContent(), 'BEGINNER GUIDE');
+  assert.match(await buildPractice.locator('#buildCoachDetail').textContent(), /L #[1-7]가 J #[1-7]보다 먼저 · RIGHT L 대칭형/);
+  const buildSeed = await buildPractice.locator('#seedValue').textContent();
+  if (process.env.SMOKE_BUILD_SCREENSHOT) {
+    const screenshotPath = path.resolve(process.env.SMOKE_BUILD_SCREENSHOT);
+    await mkdir(path.dirname(screenshotPath), { recursive: true });
+    await buildPractice.screenshot({ path: screenshotPath });
+  }
+  await buildPractice.keyboard.press('Space');
+  await buildPractice.waitForFunction(
+    () => document.querySelector('#app')?.getAttribute('data-state') === 'over',
+    undefined,
+    { timeout: 2_000 },
+  );
+  assert.equal(await buildPractice.locator('#resultBadge').textContent(), 'BUILD MISSED');
+  assert.match(await buildPractice.locator('#retryButton').textContent(), /RETRY SAME BAG/);
+  await buildPractice.locator('#retryButton').click();
+  assert.equal(await buildPractice.locator('#seedValue').textContent(), buildSeed, 'SAME BAG은 동일한 시드를 유지해야 합니다.');
+  await buildPractice.locator('#brandButton').click();
+  await buildPractice.locator('#buildRetryPicker [data-build-retry="new"]').click();
+  await buildPractice.locator('#startButton').click();
+  await buildPractice.waitForFunction(
+    () => document.querySelector('#app')?.getAttribute('data-state') === 'playing',
+    undefined,
+    { timeout: 4_000 },
+  );
+  const newPolicySeed = await buildPractice.locator('#seedValue').textContent();
+  await buildPractice.keyboard.press('Space');
+  await buildPractice.waitForFunction(
+    () => document.querySelector('#app')?.getAttribute('data-state') === 'over',
+    undefined,
+    { timeout: 2_000 },
+  );
+  assert.match(await buildPractice.locator('#retryButton').textContent(), /START NEW BAG/);
+  await buildPractice.locator('#retryButton').click();
+  assert.notEqual(await buildPractice.locator('#seedValue').textContent(), newPolicySeed, 'NEW BAG은 새로운 시드를 생성해야 합니다.');
+  await buildPractice.waitForFunction(
+    () => document.querySelector('#app')?.getAttribute('data-state') === 'playing',
+    undefined,
+    { timeout: 4_000 },
+  );
+  await buildPractice.keyboard.press('Space');
+  await buildPractice.waitForFunction(
+    () => document.querySelector('#app')?.getAttribute('data-state') === 'over',
+    undefined,
+    { timeout: 2_000 },
+  );
+  assert.equal(await buildPractice.locator('.result-back-hint').textContent(), 'ESC BACK TO SETUP');
+  await buildPractice.keyboard.press('Escape');
+  await buildPractice.waitForFunction(
+    () => document.querySelector('#app')?.getAttribute('data-state') === 'idle',
+    undefined,
+    { timeout: 2_000 },
+  );
+  assert(await buildPractice.locator('#startOverlay').isVisible(), 'ESC는 결과 화면에서 현재 모드의 설정 화면으로 돌아가야 합니다.');
+  assert.equal(await buildPractice.evaluate(() => document.activeElement?.id), 'startButton');
+  await buildPractice.locator('#buildPhasePicker [data-build-phase="bag-2"]').click();
+  await buildPractice.locator('#buildDifficultyPicker [data-build-difficulty="beginner"]').click();
+  await buildPractice.locator('#startButton').click();
+  await buildPractice.waitForFunction(
+    () => document.querySelector('#app')?.getAttribute('data-state') === 'playing',
+    undefined,
+    { timeout: 4_000 },
+  );
+  assert.match(await buildPractice.locator('#buildCoachDetail').textContent(), /1가방 바닥|180°|T-Spin Triple|중앙 아래 홈/);
+  assert.equal(await buildPractice.locator('#objectiveValue').textContent(), '7');
+  await buildPractice.locator('#brandButton').click();
+  await buildPractice.locator('#buildPhasePicker [data-build-phase="pc-3"]').click();
+  const pcStartAt = performance.now();
+  await buildPractice.locator('#startButton').click();
+  const pcStartLatency = performance.now() - pcStartAt;
+  assert(pcStartLatency < 1_000, `3가방 PC 정적 해법 조회가 너무 느립니다: ${pcStartLatency.toFixed(1)}ms`);
+  let pcState;
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    await buildPractice.waitForFunction(
+      () => ['playing', 'over'].includes(document.querySelector('#app')?.getAttribute('data-state')),
+      undefined,
+      { timeout: 5_000 },
+    );
+    pcState = await buildPractice.locator('#app').getAttribute('data-state');
+    if (pcState === 'playing') break;
+    assert.equal(await buildPractice.locator('#resultBadge').textContent(), 'PC UNAVAILABLE');
+    assert.match(await buildPractice.locator('#retryButton').textContent(), /FIND NEW BAG/);
+    assert.equal(await buildPractice.locator('#resultSameSeedButton').isVisible(), false);
+    assert.equal(await buildPractice.locator('#sameSeedRestartButton').isVisible(), false);
+    await buildPractice.locator('#retryButton').click();
+  }
+  assert.equal(pcState, 'playing', '연습 가능한 3가방 PC 시드를 찾아야 합니다.');
+  assert.equal(await buildPractice.locator('#objectiveValue').textContent(), '6');
+  assert.match(await buildPractice.locator('#buildCoachDetail').textContent(), /PC|해법/);
+  await buildPractice.locator('#brandButton').click();
+  await buildPractice.locator('#buildPhasePicker [data-build-phase="full"]').click();
+  assert.equal(await buildPractice.locator('#buildSummaryMeta').textContent(), 'BUILD → TST → PC · RIGHT L');
+  await buildPractice.locator('#startButton').click();
+  await buildPractice.waitForFunction(
+    () => document.querySelector('#app')?.getAttribute('data-state') === 'playing',
+    undefined,
+    { timeout: 5_000 },
+  );
+  assert.equal(await buildPractice.locator('#objectiveValue').textContent(), '7');
+  assert.match(await buildPractice.locator('#buildCoachProgress').textContent(), /^1\/3 · 0 \/ 7$/);
+  assert.match(await buildPractice.locator('#buildCoachDetail').textContent(), /L #[1-7]가 J #[1-7]보다 먼저 · RIGHT L 대칭형/);
+
   const finesse = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
   finesse.on('console', (message) => {
     if (message.type() === 'error') browserErrors.push(`finesse console: ${message.text()}`);

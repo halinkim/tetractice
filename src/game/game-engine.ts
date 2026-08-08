@@ -1,6 +1,7 @@
 import type { AudioEngine } from '../audio/audio-engine';
 import type { InputManager } from '../input/input-manager';
 import type { Renderer } from '../render/renderer';
+import { getBuildDefinition } from '../builds/catalog';
 import {
   $,
   BOARD_H,
@@ -15,6 +16,7 @@ import {
   STORAGE_PB,
   STORAGE_FINESSE,
   STORAGE_SPIN,
+  STORAGE_BUILD,
   TICK_MS,
   TICK_RATE,
   VERSION,
@@ -46,6 +48,20 @@ import {
   spinStateName,
 } from './spin';
 import { PieceRandomizer, XorShift32 } from './randomizer';
+import {
+  advanceDotCannonAfterLineClear,
+  buildCoachMessage,
+  buildGuideCells,
+  buildTargetMatchesBoard,
+  commitDotCannonPlacement,
+  createBuildSession,
+  createEmptyBuildProgress,
+  evaluateDotCannonPlacement,
+  evaluateDotCannonTechnique,
+  recordBuildResult,
+  sanitizeBuildProgress,
+  shouldReuseBuildSeed,
+} from './build';
 
 const makeBoard = () => Array.from({ length: BOARD_H }, () => Array(BOARD_W).fill(null));
 const TIMELINE_ACTIONS = [
@@ -74,6 +90,14 @@ const loadSpinProgress = () => {
     return parsed?.cases && typeof parsed.cases === 'object' ? parsed : { version: 1, cases: {} };
   } catch (_) {
     return { version: 1, cases: {} };
+  }
+};
+
+const loadBuildProgress = () => {
+  try {
+    return sanitizeBuildProgress(JSON.parse(localStorage.getItem(STORAGE_BUILD) || 'null'));
+  } catch (_) {
+    return createEmptyBuildProgress();
   }
 };
 
@@ -117,6 +141,9 @@ class GameEngine {
     this.spinCatalog = [];
     this.spinSession = null;
     this.spinGuidePiece = 'PRINCIPLE';
+    this.buildProgress = loadBuildProgress();
+    this.buildSession = null;
+    this.buildFullBags = [];
     this.masteryPiece = 'I';
     this.masteryCaseId = null;
     this.combo = -1;
@@ -152,7 +179,7 @@ class GameEngine {
     $('countdownOverlay').classList.toggle('is-hidden', state !== 'countdown');
     $('pauseOverlay').classList.toggle('is-hidden', state !== 'paused');
     $('resultOverlay').classList.toggle('is-hidden', state !== 'over');
-    const status = state === 'playing' ? ['finesse', 'spin'].includes(this.mode) ? 'TRAINING' : 'RUNNING' : state === 'paused' ? 'PAUSED' : state === 'countdown' ? 'GET READY' : state === 'over' ? 'RESULT' : 'READY';
+    const status = state === 'playing' ? ['finesse', 'spin', 'build'].includes(this.mode) ? 'TRAINING' : 'RUNNING' : state === 'paused' ? 'PAUSED' : state === 'countdown' ? 'GET READY' : state === 'over' ? 'RESULT' : 'READY';
     $('statusText').textContent = status;
   }
   setCountdownText(text) {
@@ -173,6 +200,7 @@ class GameEngine {
       sprint: ['SPRINT', '40 LINES', '40줄을 가능한 한 빠르게 제거하세요.', 'LINES LEFT'],
       finesse: ['TRAINING', 'FINESSE LAB', finesseDescription, 'CASES LEFT'],
       spin: ['TRAINING', 'SPIN LAB', '하드드롭으로 닿지 않는 홈을 소프트드롭과 회전으로 완성하세요.', 'CASES LEFT'],
+      build: ['BUILD TRAINING', 'DOT CANNON', '미노 순서에 맞춰 좌우 1가방 형태를 구축하세요.', 'MINOS LEFT'],
       zen: ['ZEN MODE', 'ZEN', '종료 조건 없이 쌓기와 핸들링을 연습하세요.', 'LINES'],
       custom: ['CUSTOM GAME', 'CUSTOM', '설정한 목표 줄 수 또는 무한 모드로 연습하세요.', 'LINES LEFT'],
     }[this.mode];
@@ -183,22 +211,24 @@ class GameEngine {
     $('objectiveLabel').textContent = modeInfo[3];
     const strideToggle = $('strideModeToggle');
     if (strideToggle) {
-      strideToggle.disabled = ['zen', 'finesse', 'spin'].includes(this.mode);
-      strideToggle.closest('label')?.classList.toggle('is-disabled', ['zen', 'finesse', 'spin'].includes(this.mode));
-      strideToggle.closest('label')?.setAttribute('title', ['zen', 'finesse', 'spin'].includes(this.mode) ? '이 모드에서는 Stride Mode를 별도로 사용하지 않습니다.' : 'READY–SET–GO 시작 시퀀스를 사용합니다.');
+      strideToggle.disabled = ['zen', 'finesse', 'spin', 'build'].includes(this.mode);
+      strideToggle.closest('label')?.classList.toggle('is-disabled', ['zen', 'finesse', 'spin', 'build'].includes(this.mode));
+      strideToggle.closest('label')?.setAttribute('title', ['zen', 'finesse', 'spin', 'build'].includes(this.mode) ? '이 모드에서는 Stride Mode를 별도로 사용하지 않습니다.' : 'READY–SET–GO 시작 시퀀스를 사용합니다.');
     }
     const finesseRetryToggle = $('finesseRetryToggle');
     if (finesseRetryToggle) {
-      finesseRetryToggle.disabled = ['zen', 'finesse', 'spin'].includes(this.mode);
-      finesseRetryToggle.closest('label')?.classList.toggle('is-disabled', ['zen', 'finesse', 'spin'].includes(this.mode));
+      finesseRetryToggle.disabled = ['zen', 'finesse', 'spin', 'build'].includes(this.mode);
+      finesseRetryToggle.closest('label')?.classList.toggle('is-disabled', ['zen', 'finesse', 'spin', 'build'].includes(this.mode));
       finesseRetryToggle.closest('label')?.setAttribute('title', this.mode === 'finesse'
         ? config.training.finesseType === 'flow' ? 'FLOW에서는 보드를 유지하며 다음 미노를 계속 플레이합니다.' : 'FINESSE LAB은 틀린 케이스만 즉시 다시 출제합니다.'
         : this.mode === 'zen' ? '자동 재시작은 ZEN에서 적용되지 않습니다.' : 'Finesse fault가 감지되면 같은 시드로 다시 시작합니다.');
     }
     $('finesseSetup').classList.toggle('is-hidden', this.mode !== 'finesse');
     $('spinSetup').classList.toggle('is-hidden', this.mode !== 'spin');
+    $('buildSetup').classList.toggle('is-hidden', this.mode !== 'build');
     this.updateFinesseSetup();
     this.updateSpinSetup();
+    this.updateBuildSetup();
     document.querySelectorAll('.mode-tab').forEach((button: any) => button.classList.toggle('is-active', button.dataset.mode === this.mode));
     this.updatePB();
     this.updateHUD();
@@ -313,6 +343,180 @@ class GameEngine {
         : config.training.spinPreset === 'custom' ? 'CUSTOM CYCLE' : 'BEGINNER CYCLE';
     $('spinCaseCount').textContent = String(cases.length);
     if (this.mode === 'spin') $('startButton').disabled = cases.length === 0;
+  }
+  updateBuildSetup() {
+    if (!$('buildSetup')) return;
+    document.querySelectorAll('#buildPhasePicker [data-build-phase]').forEach((button: any) => {
+      const selected = button.dataset.buildPhase === config.training.buildPhase;
+      button.setAttribute('aria-pressed', String(selected));
+      button.classList.toggle('is-selected', selected);
+    });
+    document.querySelectorAll('#buildDifficultyPicker [data-build-difficulty]').forEach((button: any) => {
+      const selected = button.dataset.buildDifficulty === config.training.buildDifficulty;
+      button.setAttribute('aria-pressed', String(selected));
+      button.classList.toggle('is-selected', selected);
+    });
+    document.querySelectorAll('#buildRetryPicker [data-build-retry]').forEach((button: any) => {
+      const selected = button.dataset.buildRetry === config.training.buildRetry;
+      button.setAttribute('aria-pressed', String(selected));
+      button.classList.toggle('is-selected', selected);
+    });
+    const definition = getBuildDefinition(config.training.buildId);
+    const buildPhase = config.training.buildPhase;
+    const phase = definition.phases[buildPhase];
+    const usesOpeningVariant = definition.openingVariantPhases.includes(buildPhase);
+    const selectedOpeningVariant = definition.openingVariants.find((option) => option.id === config.training.buildVariant)
+      || definition.openingVariants[0];
+    const variantPicker = $('buildVariantPicker');
+    const variantSignature = definition.openingVariants
+      .map((option) => `${option.id}:${option.label}:${option.detail}`)
+      .join('|');
+    if (variantPicker.dataset.variantSignature !== variantSignature) {
+      variantPicker.replaceChildren(...definition.openingVariants.map((option) => {
+        const button = document.createElement('button');
+        const detail = document.createElement('small');
+        button.type = 'button';
+        button.dataset.buildVariant = option.id;
+        button.setAttribute('aria-pressed', 'false');
+        button.append(option.label);
+        detail.textContent = option.detail;
+        button.append(detail);
+        return button;
+      }));
+      variantPicker.dataset.variantSignature = variantSignature;
+    }
+    $('buildVariantLabel').textContent = definition.openingVariantLabel;
+    $('buildVariantScope').textContent = definition.openingVariantScope;
+    variantPicker.setAttribute('aria-label', `${definition.label} 첫 가방 형태`);
+    $('buildVariantSection').classList.toggle('is-hidden', !usesOpeningVariant);
+    document.querySelectorAll('#buildVariantPicker [data-build-variant]').forEach((button: any) => {
+      const selected = button.dataset.buildVariant === selectedOpeningVariant.id;
+      button.setAttribute('aria-pressed', String(selected));
+      button.classList.toggle('is-selected', selected);
+    });
+    $('buildSummaryName').textContent = `${definition.label} · ${phase.label}`;
+    $('buildSummaryMeta').textContent = buildPhase === 'bag-1'
+      ? selectedOpeningVariant.summary
+      : buildPhase === 'full' && selectedOpeningVariant.id !== 'auto'
+        ? `${phase.meta} · ${selectedOpeningVariant.label}`
+        : phase.meta;
+    if (this.mode === 'build') {
+      $('startButton').disabled = false;
+      const openingNote = usesOpeningVariant && selectedOpeningVariant.id !== 'auto'
+        ? ` 첫 7-bag은 ${selectedOpeningVariant.detail} 출제됩니다.`
+        : '';
+      $('modeDescription').textContent = `${phase.description}${openingNote}`;
+    }
+    this.updateBuildCoach();
+  }
+  initializeBuildSession(seed) {
+    const definition = getBuildDefinition(config.training.buildId);
+    const full = config.training.buildPhase === 'full';
+    this.randomizer.ensure(full ? 21 : 8);
+    if (definition.openingVariantPhases.includes(config.training.buildPhase)) {
+      const openingBag = definition.prepareOpeningBag(this.randomizer.peek(7), config.training.buildVariant);
+      this.randomizer.queue.splice(0, 7, ...openingBag);
+    }
+    this.buildFullBags = full
+      ? Array.from({ length: 3 }, (_, index) => this.randomizer.peek(21).slice(index * 7, index * 7 + 7))
+      : [];
+    const phase = full ? 'bag-1' : config.training.buildPhase;
+    const bag = full ? this.buildFullBags[0] : this.randomizer.peek(7);
+    this.buildSession = createBuildSession(definition.id, seed, bag, phase, full ? {
+      practiceId: 'full',
+      variantBag: this.buildFullBags[0],
+    } : undefined);
+    for (const { x, y, type } of this.buildSession.initialCells) this.board[y][x] = type;
+    this.updateBuildCoach();
+  }
+  isBuildTraining() {
+    return this.mode === 'build';
+  }
+  buildGuideCells() {
+    return buildGuideCells(this.buildSession, config.training.buildDifficulty);
+  }
+  updateBuildCoach() {
+    const coach = $('buildCoach');
+    if (!coach) return;
+    const visible = this.isBuildTraining()
+      && ['countdown', 'playing'].includes(this.state)
+      && config.training.buildDifficulty !== 'expert';
+    coach.classList.toggle('is-hidden', !visible);
+    if (!visible) return;
+    const beginner = config.training.buildDifficulty === 'beginner';
+    const message = beginner
+      ? buildCoachMessage(this.buildSession, this.current?.type)
+      : {
+          title: 'BUILD SILHOUETTE',
+          detail: this.buildSession?.phaseId === 'pc-3'
+            ? `전체 외곽만 보고 SRS+·180°로 PC를 완성하세요. 현재 가방에서 ${this.buildSession.pcSolutionCount}개 해법이 가능합니다.`
+            : this.buildSession?.phaseId === 'bag-2'
+            ? '1가방 바닥과 전체 외곽만 보고 배치하세요. T는 중앙 아래 홈으로 스핀해 T-Spin Triple을 완성해야 합니다.'
+            : `전체 외곽만 보고 각 미노의 위치를 판단하세요. ${this.buildSession?.variantReason || ''}`,
+        };
+    $('buildCoachLevel').textContent = beginner ? 'BEGINNER GUIDE' : 'INTERMEDIATE SHAPE';
+    const stage = this.buildSession?.phaseId === 'bag-1' ? 1 : this.buildSession?.phaseId === 'bag-2' ? 2 : 3;
+    const stagePrefix = this.buildSession?.practiceId === 'full' ? `${stage}/3 · ` : '';
+    $('buildCoachProgress').textContent = `${stagePrefix}${this.buildSession?.placedTypes.length || 0} / ${this.buildSession?.requiredPieces.length || 7}`;
+    $('buildCoachTitle').textContent = message.title;
+    $('buildCoachDetail').textContent = message.detail;
+  }
+  saveBuildProgress() {
+    try { localStorage.setItem(STORAGE_BUILD, JSON.stringify(this.buildProgress)); } catch (_) {}
+  }
+  resetBuildProgress() {
+    this.buildProgress = createEmptyBuildProgress();
+    this.saveBuildProgress();
+  }
+  recordCurrentBuildResult(success) {
+    if (!this.buildSession || this.buildSession.recorded) return;
+    recordBuildResult(this.buildProgress, this.buildSession, success);
+    this.buildSession.recorded = true;
+    this.saveBuildProgress();
+  }
+  restartAttempt(options: any = {}) {
+    if (this.mode === 'build' && !options.forceNew) {
+      const pcUnavailable = this.buildSession?.phaseId === 'pc-3' && !this.buildSession.pcPossible;
+      this.start({ sameSeed: pcUnavailable ? false : shouldReuseBuildSeed(this.result?.success, config.training.buildRetry) });
+      return;
+    }
+    this.start(options);
+  }
+  restartSameSeed() {
+    const pcUnavailable = this.mode === 'build'
+      && this.buildSession?.phaseId === 'pc-3'
+      && !this.buildSession.pcPossible;
+    const forceNewBuildSeed = this.mode === 'build' && (this.result?.success === true || pcUnavailable);
+    this.start({ sameSeed: !forceNewBuildSeed });
+  }
+  advanceFullBuildStage() {
+    if (this.buildSession?.practiceId !== 'full') return false;
+    const nextPhase = this.buildSession.phaseId === 'bag-1' ? 'bag-2'
+      : this.buildSession.phaseId === 'bag-2' ? 'pc-3' : null;
+    if (!nextPhase) return false;
+    const nextIndex = nextPhase === 'bag-2' ? 1 : 2;
+    const bag = this.buildFullBags[nextIndex];
+    if (!bag) return false;
+    const variant = this.buildSession.variant;
+    this.randomizer.queue = this.buildFullBags.slice(nextIndex).flat();
+    this.current = null;
+    this.holdType = null;
+    this.canHold = true;
+    this.areRemaining = 0;
+    this.buildSession = createBuildSession(this.buildSession.buildId, this.seed, bag, nextPhase, {
+      practiceId: 'full',
+      variant,
+      variantBag: this.buildFullBags[0],
+    });
+    if (nextPhase === 'pc-3' && !this.buildSession.pcPossible) {
+      this.buildSession.recorded = true;
+      this.finish(false, 'PC UNAVAILABLE');
+      return true;
+    }
+    this.showAction(nextPhase === 'bag-2' ? 'BAG 2 · TST' : 'BAG 3 · PC', 'accent');
+    this.spawnNext(true);
+    this.updateHUD();
+    return true;
   }
   initializeSpinSession(seed) {
     const cases = this.configuredSpinCases();
@@ -666,11 +870,12 @@ class GameEngine {
     const finesseActive = this.mode === 'finesse';
     const finesseDrill = finesseActive && config.training.finesseType !== 'flow';
     const spinActive = this.mode === 'spin';
-    const trainingActive = finesseActive || spinActive;
-    const strideActive = Boolean(config.ui.strideMode && !['zen', 'finesse', 'spin'].includes(this.mode) && !options.skipCountdown);
+    const buildActive = this.mode === 'build';
+    const trainingActive = finesseActive || spinActive || buildActive;
+    const strideActive = Boolean(config.ui.strideMode && !['zen', 'finesse', 'spin', 'build'].includes(this.mode) && !options.skipCountdown);
     const avoidFirstPiece = Boolean(strideActive && this.mode !== 'custom');
     this.board = makeBoard();
-    this.randomizer = new PieceRandomizer(this.seed, finesseActive && !finesseDrill ? 'bag7' : config.gameplay.randomizer, avoidFirstPiece);
+    this.randomizer = new PieceRandomizer(this.seed, (finesseActive && !finesseDrill) || buildActive ? 'bag7' : config.gameplay.randomizer, avoidFirstPiece);
     this.randomizer.ensure(7);
     this.current = null;
     this.holdType = null;
@@ -711,6 +916,8 @@ class GameEngine {
     else this.finesseSession = null;
     if (spinActive) this.initializeSpinSession(this.seed);
     else this.spinSession = null;
+    if (buildActive) this.initializeBuildSession(this.seed);
+    else this.buildSession = null;
     this.replayMode = Boolean(options.replay);
     if (this.replayMode) this.input.hardReset();
     this.replay = options.replay || {
@@ -731,9 +938,14 @@ class GameEngine {
     $('countdownOverlay').dataset.style = this.countdownStyle;
     this.setState('countdown');
     this.setCountdownText(this.countdownStyle === 'stride' ? 'READY' : this.countdownFrames <= 1 ? 'GO' : '3');
-    $('countdownSub').textContent = options.retryReason || (this.replayMode ? 'REPLAY' : this.handlingTest ? 'HANDLING TEST' : finesseActive && !finesseDrill ? 'FLOW · 7-BAG' : spinActive ? '세우기 · 내리기 · 회전' : 'GET READY');
+    const buildDefinition = getBuildDefinition(config.training.buildId);
+    $('countdownSub').textContent = options.retryReason || (this.replayMode ? 'REPLAY' : this.handlingTest ? 'HANDLING TEST' : finesseActive && !finesseDrill ? 'FLOW · 7-BAG' : spinActive ? '세우기 · 내리기 · 회전' : buildActive ? `${buildDefinition.label} · ${buildDefinition.phases[config.training.buildPhase].label}` : 'GET READY');
     this.audio.ensure();
     this.updateHUD();
+    if (buildActive && this.buildSession?.phaseId === 'pc-3' && !this.buildSession.pcPossible) {
+      this.buildSession.recorded = true;
+      this.finish(false, 'PC UNAVAILABLE');
+    }
   }
   replayConfigSnapshot() {
     return {
@@ -775,7 +987,7 @@ class GameEngine {
         const previous = $('countdownValue').textContent;
         let text;
         if (this.countdownStyle === 'stride') {
-          text = ['finesse', 'spin'].includes(this.mode)
+          text = ['finesse', 'spin', 'build'].includes(this.mode)
             ? this.countdownFrames > 30 ? 'READY' : 'GO'
             : this.countdownFrames > 60 ? 'READY' : this.countdownFrames > 30 ? 'SET' : 'GO';
         } else if (this.countdownStyle === 'skip') {
@@ -855,6 +1067,8 @@ class GameEngine {
     this.finessePerfectPieces = 0;
     this.finesseSession = null;
     this.spinSession = null;
+    this.buildSession = null;
+    this.buildFullBags = [];
     this.finesseHintTimer = 0;
     this.combo = -1;
     this.b2b = 0;
@@ -881,6 +1095,7 @@ class GameEngine {
     $('finesseHint').classList.remove('is-visible');
     $('spinFeedback').textContent = '';
     $('spinCoach').classList.add('is-hidden');
+    $('buildCoach').classList.add('is-hidden');
     this.renderer.lastMiniSignature = '';
     this.updateFinesseSetup();
     this.updateSpinSetup();
@@ -901,7 +1116,7 @@ class GameEngine {
       }
       if (edge.action === 'retry') {
         const retriable = ['countdown', 'playing', 'paused', 'over'].includes(this.state);
-        if (retriable && config.ui.strideMode && this.mode !== 'zen') this.start();
+        if (retriable && config.ui.strideMode && this.mode !== 'zen') this.restartAttempt();
         else if (retriable) {
           this.retryArmed = true;
           this.retryHoldFrames = 0;
@@ -911,7 +1126,7 @@ class GameEngine {
         continue;
       }
       if (edge.action === 'hardDrop' && this.state === 'idle') this.start();
-      else if (edge.action === 'hardDrop' && this.state === 'over') this.start();
+      else if (edge.action === 'hardDrop' && this.state === 'over') this.restartAttempt();
     }
   }
   processRetryHold() {
@@ -926,7 +1141,7 @@ class GameEngine {
     if (this.retryHoldFrames < 30) return false;
     this.retryArmed = false;
     this.retryHoldFrames = 0;
-    this.start();
+    this.restartAttempt();
     return true;
   }
   beginInputTimeline() {
@@ -1053,7 +1268,7 @@ class GameEngine {
         this.tryRotate(-1, true);
         break;
       case 'rotate180':
-        if (config.gameplay.allow180) {
+        if (config.gameplay.allow180 || (this.isBuildTraining() && this.buildSession?.phaseId !== 'bag-1')) {
           this.pieceManipulations += 1;
           this.recordPieceInput('rotate180');
           this.tryRotate(2, true);
@@ -1277,7 +1492,11 @@ class GameEngine {
   kicks(type, from, to, delta) {
     const key = `${from}>${to}`;
     if (Math.abs(delta) === 2) return (type === 'I' ? I_180 : JLSTZ_180)[key] || [[0, 0]];
-    if (type === 'I') return (config.gameplay.rotation === 'srsplus' ? I_90_SRS_PLUS : I_90_SRS)[key] || [[0, 0]];
+    if (type === 'I') {
+      const useSrsPlus = config.gameplay.rotation === 'srsplus'
+        || (this.isBuildTraining() && this.buildSession?.phaseId === 'pc-3');
+      return (useSrsPlus ? I_90_SRS_PLUS : I_90_SRS)[key] || [[0, 0]];
+    }
     return JLSTZ_90[key] || [[0, 0]];
   }
   setDCD() {
@@ -1298,7 +1517,7 @@ class GameEngine {
     const distance = toY - fromY;
     this.current.y = toY;
     if (distance > 0) this.lastRotation = null;
-    if (!['finesse', 'spin'].includes(this.mode)) this.score += distance * 2;
+    if (!['finesse', 'spin', 'build'].includes(this.mode)) this.score += distance * 2;
     this.lastAction = 'hardDrop';
     this.renderer.addHardDrop(this.current, fromY, toY);
     this.setDCD();
@@ -1330,6 +1549,7 @@ class GameEngine {
       this.topOut();
       return false;
     }
+    this.updateBuildCoach();
     return true;
   }
   createPiece(type) {
@@ -1359,6 +1579,7 @@ class GameEngine {
       return;
     }
     if (applyBuffers) this.applySpawnBuffers();
+    this.updateBuildCoach();
   }
   spawnFinessePiece() {
     const session = this.finesseSession;
@@ -1550,7 +1771,7 @@ class GameEngine {
     }
     if (rotation === 'rotateCW') this.tryRotate(1, false);
     else if (rotation === 'rotateCCW') this.tryRotate(-1, false);
-    else if (rotation === 'rotate180' && config.gameplay.allow180) this.tryRotate(2, false);
+    else if (rotation === 'rotate180' && (config.gameplay.allow180 || (this.isBuildTraining() && this.buildSession?.phaseId !== 'bag-1'))) this.tryRotate(2, false);
     if (ihsMode === 'tap') this.bufferTap.hold = false;
     if (irsMode === 'tap') this.bufferTap.rotation = null;
   }
@@ -1685,15 +1906,39 @@ class GameEngine {
       return;
     }
     const locked = deepClone(this.current);
+    const lockedCells = this.cells();
     const tSpin = this.detectTSpin();
     const flowTraining = this.mode === 'finesse' && this.finesseSession?.type === 'flow';
     const flowFinesse = flowTraining ? this.evaluateFlowFinesse(locked) : null;
     const measuredFinesse = flowTraining ? null : this.measureFinesse(locked);
-    for (const [x, y] of this.cells()) {
+    const buildEvaluation = this.isBuildTraining() && this.buildSession
+      ? evaluateDotCannonPlacement(this.buildSession, locked.type, lockedCells)
+      : null;
+    for (const [x, y] of lockedCells) {
       if (y >= 0 && y < BOARD_H) this.board[y][x] = this.current.type;
     }
     const rows = [];
     for (let y = 0; y < BOARD_H; y += 1) if (this.board[y].every(Boolean)) rows.push(y);
+    const buildTechnique = buildEvaluation?.success
+      ? evaluateDotCannonTechnique(this.buildSession, locked.type, {
+          tSpin: Boolean(tSpin.spin && !tSpin.mini),
+          lines: rows.length,
+        })
+      : null;
+    const buildFailure = buildEvaluation && !buildEvaluation.success ? buildEvaluation
+      : buildTechnique && !buildTechnique.success ? buildTechnique : null;
+    if (buildFailure) {
+      this.buildSession.failed = true;
+      this.buildSession.failureReason = buildFailure.reason;
+      this.pieces += 1;
+      this.current = null;
+      this.showAction('BUILD MISSED', 'danger');
+      uiBridge.toast(buildFailure.reason, 'danger');
+      this.recordCurrentBuildResult(false);
+      this.finish(false, 'BUILD MISSED');
+      return;
+    }
+    if (buildEvaluation?.success) commitDotCannonPlacement(this.buildSession, locked.type, lockedCells);
     const finesse = flowTraining ? flowFinesse : measuredFinesse;
     if (finesse > 0) {
       this.finesseFaults += finesse;
@@ -1701,7 +1946,7 @@ class GameEngine {
         this.showAction(`FINESSE +${finesse}`, 'danger');
         this.audio.play('finesse');
       }
-      if (config.ui.retryOnFinesse && !['zen', 'finesse', 'spin'].includes(this.mode) && !this.replayMode) {
+      if (config.ui.retryOnFinesse && !['zen', 'finesse', 'spin', 'build'].includes(this.mode) && !this.replayMode) {
         this.start({ sameSeed: true, retryReason: 'FINESSE FAULT · AUTO RETRY' });
         return;
       }
@@ -1721,10 +1966,24 @@ class GameEngine {
       this.renderer.bounce(false);
       this.audio.play('lock');
     }
+    if (this.isBuildTraining() && this.buildSession) advanceDotCannonAfterLineClear(this.buildSession, rows);
     this.current = null;
     this.gravityAccumulator = 0;
     this.lockTimer = 0;
     this.lockResetsUsed = 0;
+
+    if (this.isBuildTraining() && this.buildSession?.placedTypes.length >= this.buildSession.requiredPieces.length) {
+      const complete = buildTargetMatchesBoard(this.buildSession, this.board);
+      if (complete && this.buildSession.practiceId === 'full' && this.buildSession.phaseId !== 'pc-3') {
+        if (this.advanceFullBuildStage()) return;
+      }
+      this.recordCurrentBuildResult(complete);
+      const completeBadge = this.buildSession.practiceId === 'full'
+        ? 'FULL BUILD COMPLETE'
+        : this.buildSession.phaseId === 'pc-3' ? 'PC COMPLETE' : 'BUILD COMPLETE';
+      this.finish(complete, complete ? completeBadge : 'BUILD MISSED');
+      return;
+    }
 
     if (this.mode === 'sprint' && this.lines >= 40) {
       this.complete();
@@ -1867,6 +2126,7 @@ class GameEngine {
   }
   finish(success, badge) {
     if (this.state === 'over') return;
+    if (this.mode === 'build') this.recordCurrentBuildResult(success);
     const elapsedFrames = this.state === 'playing' ? this.playFrame + this.currentSubframe : this.playFrame;
     this.result = {
       success,
@@ -1890,13 +2150,22 @@ class GameEngine {
         $('resultBadge').textContent = '';
       }
     } else {
-      $('resultBadge').textContent = success && ['finesse', 'spin'].includes(this.mode) ? badge : success ? '' : badge;
+      $('resultBadge').textContent = success && ['finesse', 'spin', 'build'].includes(this.mode) ? badge : success ? '' : badge;
     }
     $('resultTime').textContent = formatTime(this.result.time);
     $('resultPps').textContent = this.pps().toFixed(2);
     $('resultKpp').textContent = this.kpp().toFixed(2);
     $('resultFinesse').textContent = String(this.finesseFaults);
     $('resultPieces').textContent = String(this.pieces);
+    const pcUnavailable = this.mode === 'build'
+      && this.buildSession?.phaseId === 'pc-3'
+      && !this.buildSession.pcPossible;
+    const retryLabel = $('retryButton').querySelector('span');
+    if (retryLabel) retryLabel.textContent = this.mode === 'build'
+      ? success ? 'NEXT NEW BAG' : pcUnavailable ? 'FIND NEW BAG' : config.training.buildRetry === 'same' ? 'RETRY SAME BAG' : 'START NEW BAG'
+      : 'RETRY';
+    $('resultSameSeedButton').textContent = this.mode === 'build' ? 'SAME BAG' : 'SAME SEED';
+    $('resultSameSeedButton').classList.toggle('is-hidden', this.mode === 'build' && (success || pcUnavailable));
     this.setState('over');
     this.audio.play(success ? 'complete' : 'topout');
     this.updatePB();
@@ -1930,6 +2199,7 @@ class GameEngine {
     return this.pieces > 0 ? this.attack / this.pieces : 0;
   }
   targetValue() {
+    if (this.mode === 'build') return Math.max(0, (this.buildSession?.requiredPieces.length || 7) - (this.buildSession?.placedTypes.length || 0));
     if (this.mode === 'spin') {
       return Math.max(0, (this.spinSession?.deck.length || this.configuredSpinCases().length) - (this.spinSession?.index || 0));
     }
@@ -1963,18 +2233,29 @@ class GameEngine {
   }
   updateHUD() {
     $('ppsValue').textContent = this.pps().toFixed(2);
-    $('finesseValue').textContent = `${Math.round(this.finesseAccuracy())}% · ${this.finesseFaults}F`;
-    const training = ['finesse', 'spin'].includes(this.mode);
+    const drillTraining = ['finesse', 'spin'].includes(this.mode);
+    const buildTraining = this.mode === 'build';
+    const training = drillTraining || buildTraining;
     const spinTraining = this.mode === 'spin';
     const flowTraining = this.mode === 'finesse' && this.finesseTrainingType() === 'flow';
-    $('runCardTitle').textContent = spinTraining ? 'SPIN' : training ? 'FINESSE' : 'RUN';
-    $('scoreRunLabel').textContent = training ? flowTraining ? 'LINES' : 'COVERAGE' : 'SCORE';
-    $('finesseRunLabel').textContent = training ? 'ACCURACY' : 'FINESSE';
+    const buildAccuracy = this.buildProgress.attempts > 0 ? this.buildProgress.successes / this.buildProgress.attempts * 100 : 100;
+    $('finesseValue').textContent = buildTraining
+      ? `${Math.round(buildAccuracy)}% · ${this.buildProgress.successes} CLEAR`
+      : `${Math.round(this.finesseAccuracy())}% · ${this.finesseFaults}F`;
+    $('runCardTitle').textContent = buildTraining ? 'BUILD' : spinTraining ? 'SPIN' : training ? 'FINESSE' : 'RUN';
+    $('scoreRunLabel').textContent = buildTraining ? 'PROGRESS' : training ? flowTraining ? 'LINES' : 'COVERAGE' : 'SCORE';
+    $('finesseRunLabel').textContent = buildTraining ? 'SUCCESS' : training ? 'ACCURACY' : 'FINESSE';
     $('linesRunLabel').textContent = training ? 'ATTEMPTS' : 'LINES';
-    $('piecesRunLabel').textContent = training ? 'PERFECT' : 'PIECES';
+    $('piecesRunLabel').textContent = buildTraining ? 'CLEARS' : training ? 'PERFECT' : 'PIECES';
     $('comboRunLabel').textContent = training ? 'STREAK' : 'COMBO';
     $('b2bRunLabel').textContent = training ? 'BEST' : 'B2B';
-    if (training) {
+    if (buildTraining) {
+      $('scoreValue').textContent = `${this.buildSession?.placedTypes.length || 0}/${this.buildSession?.requiredPieces.length || 7}`;
+      $('linesValue').textContent = String(this.buildProgress.attempts);
+      $('piecesValue').textContent = String(this.buildProgress.successes);
+      $('comboValue').textContent = String(this.buildProgress.streak);
+      $('b2bValue').textContent = String(this.buildProgress.bestStreak);
+    } else if (training) {
       const session = spinTraining ? this.spinSession : this.finesseSession;
       const configuredCount = spinTraining ? this.configuredSpinCases().length : this.configuredFinesseCases().length;
       $('scoreValue').textContent = flowTraining ? String(this.lines) : `${session?.index || 0}/${session?.deck.length || configuredCount}`;
@@ -1991,17 +2272,21 @@ class GameEngine {
     }
     $('elapsedTime').textContent = formatTime(this.elapsedFrames() * TICK_MS);
     $('objectiveValue').textContent = String(this.targetValue());
-    $('objectiveLabel').textContent = training ? flowTraining ? 'LINES' : 'CASES LEFT' : this.mode === 'zen' || (this.mode === 'custom' && config.gameplay.customLines <= 0) ? 'LINES' : 'LINES LEFT';
-    $('holdPanelLabel').textContent = training && !flowTraining ? 'TARGET' : 'HOLD';
+    $('objectiveLabel').textContent = buildTraining ? 'MINOS LEFT' : training ? flowTraining ? 'LINES' : 'CASES LEFT' : this.mode === 'zen' || (this.mode === 'custom' && config.gameplay.customLines <= 0) ? 'LINES' : 'LINES LEFT';
+    $('holdPanelLabel').textContent = drillTraining && !flowTraining ? 'TARGET' : 'HOLD';
     const target = spinTraining ? this.spinSession?.currentCase : this.finesseSession?.currentCase;
-    $('holdState').textContent = training && !flowTraining
+    $('holdState').textContent = drillTraining && !flowTraining
       ? spinTraining ? this.compactSpinTransition(target) : target?.rotationLabel || 'READY'
       : this.canHold ? 'READY' : 'USED';
-    $('holdCanvas').setAttribute('aria-label', training && !flowTraining && target
+    $('holdCanvas').setAttribute('aria-label', drillTraining && !flowTraining && target
       ? spinTraining ? `목표 ${target.type} 스핀, ${target.stateNames[0]}에서 ${target.stateNames[1]}` : `목표 ${target.type} 미노, ${target.rotationLabel}, 왼쪽에서 ${target.left + 1}번째 열`
       : '보관한 미노');
     this.updateSpinCoach();
-    $('sameSeedRestartButton').disabled = !this.seed;
+    this.updateBuildCoach();
+    const buildSeedLocked = buildTraining
+      && (this.result?.success === true || (this.buildSession?.phaseId === 'pc-3' && !this.buildSession.pcPossible));
+    $('sameSeedRestartButton').disabled = !this.seed || buildSeedLocked;
+    $('sameSeedRestartButton').classList.toggle('is-hidden', buildSeedLocked);
     $('footerRestartButton').disabled = !this.seed;
   }
 }

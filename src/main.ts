@@ -8,6 +8,7 @@ import {
   STORAGE_CONFIG,
   STORAGE_FINESSE,
   STORAGE_SPIN,
+  STORAGE_BUILD,
   STORAGE_PB,
   TICK_MS,
   VERSION,
@@ -122,7 +123,7 @@ import { createViewportScale } from './ui/viewport-scale';
   };
 
   const setMode = (mode) => {
-    if (!['sprint', 'finesse', 'spin', 'zen', 'custom'].includes(mode)) return;
+    if (!['sprint', 'finesse', 'spin', 'build', 'zen', 'custom'].includes(mode)) return;
     if (game.state !== 'idle') game.resetToIdle();
     game.mode = mode;
     config.ui.mode = mode;
@@ -424,6 +425,28 @@ import { createViewportScale } from './ui/viewport-scale';
     game.updateSpinSetup();
     scheduleSave();
   }));
+  document.querySelectorAll('#buildDifficultyPicker [data-build-difficulty]').forEach((button: any) => button.addEventListener('click', () => {
+    config.training.buildDifficulty = button.dataset.buildDifficulty;
+    game.updateBuildSetup();
+    scheduleSave();
+  }));
+  document.querySelectorAll('#buildPhasePicker [data-build-phase]').forEach((button: any) => button.addEventListener('click', () => {
+    config.training.buildPhase = button.dataset.buildPhase;
+    game.updateBuildSetup();
+    scheduleSave();
+  }));
+  $('buildVariantPicker').addEventListener('click', (event) => {
+    const button = (event.target as HTMLElement).closest('[data-build-variant]') as HTMLElement | null;
+    if (!button) return;
+    config.training.buildVariant = button.dataset.buildVariant;
+    game.updateBuildSetup();
+    scheduleSave();
+  });
+  document.querySelectorAll('#buildRetryPicker [data-build-retry]').forEach((button: any) => button.addEventListener('click', () => {
+    config.training.buildRetry = button.dataset.buildRetry;
+    game.updateBuildSetup();
+    scheduleSave();
+  }));
   $('spinGuideButton').addEventListener('click', () => game.openSpinGuide());
   $('closeSpinGuideButton').addEventListener('click', () => game.closeSpinGuide());
   document.querySelectorAll('#spinGuideTabs [data-spin-guide]').forEach((button: any) => button.addEventListener('click', () => {
@@ -448,6 +471,13 @@ import { createViewportScale } from './ui/viewport-scale';
   window.addEventListener('keydown', (event) => {
     const activeOverlay = !$('spinGuideOverlay').classList.contains('is-hidden') ? $('spinGuideOverlay')
       : !$('masteryOverlay').classList.contains('is-hidden') ? $('masteryOverlay') : null;
+    if (!activeOverlay && event.code === 'Escape' && game.state === 'over') {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      game.resetToIdle();
+      $('startButton').focus();
+      return;
+    }
     if (!activeOverlay) return;
     if (event.code === 'Escape') {
       event.preventDefault();
@@ -478,11 +508,11 @@ import { createViewportScale } from './ui/viewport-scale';
   $('startButton').addEventListener('click', () => game.start());
   $('pauseButton').addEventListener('click', () => game.pause(false));
   $('resumeButton').addEventListener('click', () => game.resume());
-  $('pauseRestartButton').addEventListener('click', () => game.start());
-  $('retryButton').addEventListener('click', () => game.start());
-  $('resultSameSeedButton').addEventListener('click', () => game.start({ sameSeed: true }));
-  $('sameSeedRestartButton').addEventListener('click', () => game.start({ sameSeed: true }));
-  $('footerRestartButton').addEventListener('click', () => game.start());
+  $('pauseRestartButton').addEventListener('click', () => game.restartAttempt());
+  $('retryButton').addEventListener('click', () => game.restartAttempt());
+  $('resultSameSeedButton').addEventListener('click', () => game.restartSameSeed());
+  $('sameSeedRestartButton').addEventListener('click', () => game.restartSameSeed());
+  $('footerRestartButton').addEventListener('click', () => game.restartAttempt());
   $('brandButton').addEventListener('click', () => game.resetToIdle());
   $('fullscreenButton').addEventListener('click', toggleFullscreen);
   $('audioButton').addEventListener('click', () => {
@@ -544,9 +574,10 @@ import { createViewportScale } from './ui/viewport-scale';
   $('resetAllDataButton').addEventListener('click', () => {
     setConfig(deepClone(DEFAULT_CONFIG));
     setPersonalBests({ sprint: null });
-    try { localStorage.removeItem(STORAGE_CONFIG); localStorage.removeItem(STORAGE_PB); localStorage.removeItem(STORAGE_FINESSE); localStorage.removeItem(STORAGE_SPIN); } catch (_) {}
+    try { localStorage.removeItem(STORAGE_CONFIG); localStorage.removeItem(STORAGE_PB); localStorage.removeItem(STORAGE_FINESSE); localStorage.removeItem(STORAGE_SPIN); localStorage.removeItem(STORAGE_BUILD); } catch (_) {}
     game.resetFinesseProgress();
     game.resetSpinProgress();
+    game.resetBuildProgress();
     input.rebuildBindings();
     syncSettingsUI();
     game.mode = config.ui.mode;

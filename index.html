@@ -23,6 +23,7 @@
         <button class="mode-tab is-active" type="button" data-mode="sprint">40 LINES</button>
         <button class="mode-tab" type="button" data-mode="finesse">FINESSE</button>
         <button class="mode-tab" type="button" data-mode="spin">SPIN</button>
+        <button class="mode-tab" type="button" data-mode="build">BUILD</button>
         <button class="mode-tab" type="button" data-mode="zen">ZEN</button>
         <button class="mode-tab" type="button" data-mode="custom">CUSTOM</button>
       </nav>
@@ -76,6 +77,11 @@
             <strong id="spinDirectionValue">시계 방향으로 회전</strong>
             <p id="spinConceptValue">세로로 내린 뒤 마지막 회전으로 홈을 채웁니다.</p>
             <p id="spinFeedback" class="spin-feedback"></p>
+          </div>
+          <div id="buildCoach" class="build-coach is-hidden" aria-live="polite">
+            <div><span id="buildCoachLevel">BEGINNER GUIDE</span><b id="buildCoachProgress">0 / 7</b></div>
+            <strong id="buildCoachTitle">DOT CANNON</strong>
+            <p id="buildCoachDetail">미노별 흐린 목표 위치를 따라 배치하세요.</p>
           </div>
 
           <div id="startOverlay" class="board-overlay start-overlay">
@@ -162,6 +168,38 @@
                 <button id="spinGuideButton" type="button">SPIN GUIDE</button>
               </div>
             </div>
+            <div id="buildSetup" class="build-setup is-hidden">
+              <span class="build-filter-label build-filter-label-first">PRACTICE PHASE</span>
+              <div id="buildPhasePicker" class="build-phase-picker" role="group" aria-label="연습할 도트 캐논 가방 단계">
+                <button type="button" data-build-phase="bag-1" aria-pressed="true">BAG 1<small>J 먼저=기본 · L 먼저=대칭</small></button>
+                <button type="button" data-build-phase="bag-2" aria-pressed="false">BAG 2<small>1가방 바닥에서 구축</small></button>
+                <button type="button" data-build-phase="pc-3" aria-pressed="false">3-BAG PC<small>가능한 PC 해법 연습</small></button>
+                <button type="button" data-build-phase="full" aria-pressed="false">FULL 3 BAGS<small>구축 → TST → PC 연속</small></button>
+              </div>
+              <div id="buildVariantSection">
+                <span class="build-filter-label"><span id="buildVariantLabel">BAG 1 SIDE</span><small id="buildVariantScope">BAG 1 · FULL ONLY</small></span>
+                <div id="buildVariantPicker" class="build-variant-picker" role="group" aria-label="도트 캐논 첫 가방 좌우 형태">
+                  <button type="button" data-build-variant="auto" aria-pressed="true">AUTO<small>J/L 순서대로</small></button>
+                  <button type="button" data-build-variant="left-j" aria-pressed="false">LEFT J<small>J → L 가방만</small></button>
+                  <button type="button" data-build-variant="right-l" aria-pressed="false">RIGHT L<small>L → J 가방만</small></button>
+                </div>
+              </div>
+              <span class="build-filter-label">GUIDE LEVEL</span>
+              <div id="buildDifficultyPicker" class="build-difficulty-picker" role="group" aria-label="빌드 연습 난이도">
+                <button type="button" data-build-difficulty="beginner" aria-pressed="true">BEGINNER<small>미노별 목표 위치</small></button>
+                <button type="button" data-build-difficulty="intermediate" aria-pressed="false">INTERMEDIATE<small>전체 실루엣만 표시</small></button>
+                <button type="button" data-build-difficulty="expert" aria-pressed="false">EXPERT<small>실전처럼 도움 없음</small></button>
+              </div>
+              <span class="build-filter-label">AFTER A MISS</span>
+              <div id="buildRetryPicker" class="build-retry-picker" role="group" aria-label="빌드 실패 후 재시도 방식">
+                <button type="button" data-build-retry="same" aria-pressed="true">SAME BAG<small>같은 가방으로 재도전</small></button>
+                <button type="button" data-build-retry="new" aria-pressed="false">NEW BAG<small>새 시드로 다음 문제</small></button>
+              </div>
+              <div class="build-setup-summary">
+                <span id="buildSummaryName">DOT CANNON · BAG 1</span>
+                <b id="buildSummaryMeta">J FIRST = BASE · L FIRST = MIRROR</b>
+              </div>
+            </div>
             <div id="pbLine" class="pb-line"><span>PERSONAL BEST</span><b id="pbValue">—</b></div>
             <button id="startButton" class="primary-button" type="button"><span>START</span><kbd>SPACE</kbd></button>
           </div>
@@ -193,6 +231,7 @@
               <button id="resultSameSeedButton" type="button">SAME SEED</button>
               <button id="exportReplayButton" type="button">EXPORT REPLAY</button>
             </div>
+            <p class="result-back-hint"><kbd>ESC</kbd> BACK TO SETUP</p>
           </div>
 
           <div id="masteryOverlay" class="board-overlay mastery-overlay is-hidden" role="dialog" aria-modal="true" aria-labelledby="masteryTitle">

@@ -1,3 +1,9 @@
+import {
+  DEFAULT_BUILD_ID,
+  sanitizeBuildId,
+  sanitizeBuildOpeningVariant,
+} from '../builds/catalog';
+
 const VERSION = '1.0.1';
 const TICK_RATE = 60;
 const TICK_MS = 1000 / TICK_RATE;
@@ -10,6 +16,7 @@ const STORAGE_CONFIG = 'stacklab.config.v1';
 const STORAGE_PB = 'stacklab.pb.v1';
 const STORAGE_FINESSE = 'stacklab.finesse.v1';
 const STORAGE_SPIN = 'stacklab.spin.v1';
+const STORAGE_BUILD = 'stacklab.build.v1';
 
 const $ = (id: string): any => document.getElementById(id);
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
@@ -30,6 +37,7 @@ const deepMerge = (base: any, patch: any): any => {
 
 const PIECES = ['I', 'J', 'L', 'O', 'S', 'T', 'Z'];
 const PIECE_COLORS = {
+  G: '#62586b',
   I: '#38d9e6',
   J: '#5b74f4',
   L: '#f5a03a',
@@ -239,6 +247,11 @@ const DEFAULT_CONFIG = {
     spinValidation: 'technique',
     spinPreset: 'basics',
     spinPieces: ['T', 'S', 'Z'],
+    buildId: DEFAULT_BUILD_ID,
+    buildPhase: 'bag-1',
+    buildVariant: 'auto',
+    buildDifficulty: 'beginner',
+    buildRetry: 'same',
   },
   ui: {
     mode: 'sprint',
@@ -309,7 +322,12 @@ const sanitizeConfig = (candidate: any): any => {
   const spinPieces = Array.isArray(cfg.training.spinPieces) ? cfg.training.spinPieces : ['T', 'S', 'Z'];
   cfg.training.spinPieces = ['T', 'S', 'Z', 'L', 'J', 'I'].filter((piece) => spinPieces.includes(piece));
   if (!cfg.training.spinPieces.length) cfg.training.spinPieces = ['T', 'S', 'Z'];
-  if (!['sprint', 'zen', 'custom', 'finesse', 'spin'].includes(cfg.ui.mode)) cfg.ui.mode = 'sprint';
+  cfg.training.buildId = sanitizeBuildId(cfg.training.buildId);
+  if (!['bag-1', 'bag-2', 'pc-3', 'full'].includes(cfg.training.buildPhase)) cfg.training.buildPhase = 'bag-1';
+  cfg.training.buildVariant = sanitizeBuildOpeningVariant(cfg.training.buildId, cfg.training.buildVariant);
+  if (!['beginner', 'intermediate', 'expert'].includes(cfg.training.buildDifficulty)) cfg.training.buildDifficulty = 'beginner';
+  if (!['same', 'new'].includes(cfg.training.buildRetry)) cfg.training.buildRetry = 'same';
+  if (!['sprint', 'zen', 'custom', 'finesse', 'spin', 'build'].includes(cfg.ui.mode)) cfg.ui.mode = 'sprint';
   cfg.ui.proMode = Boolean(cfg.ui.proMode);
   cfg.ui.finesseAlert = Boolean(cfg.ui.finesseAlert);
   cfg.ui.retryOnFinesse = Boolean(cfg.ui.retryOnFinesse);
@@ -369,6 +387,7 @@ export {
   STORAGE_PB,
   STORAGE_FINESSE,
   STORAGE_SPIN,
+  STORAGE_BUILD,
   $,
   clamp,
   deepClone,
